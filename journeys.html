@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Unrulr Journeys · Helios</title>
+<meta name="description" content="Asher Greer's published Unrulr journeys for the Helios capstone, moment by moment.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .jhead { display: grid; gap: 22px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .story { display: grid; gap: 1em; color: #d6d2c9; max-width: 64ch; }
+  .moments { display: grid; gap: 0; position: relative; }
+  .moment { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 28px; padding-block: 30px; border-top: 1px solid var(--line); }
+  .moment:first-child { border-top: 0; }
+  .when { display: grid; gap: 6px; align-content: start; position: sticky; top: 84px; }
+  .when .n { font: 600 2.4rem/1 var(--head); color: var(--gold); }
+  .when .d { font: 500 0.78rem var(--mono); color: var(--muted); }
+  .mbody { display: grid; gap: 14px; min-width: 0; }
+  .mbody ul { margin: 0; padding-left: 1.15em; display: grid; gap: 6px; color: #d6d2c9; }
+  .mbody li::marker { color: var(--gold); }
+  .shots { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
+  .shots.one { grid-template-columns: minmax(0, 640px); }
+  .shots img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+  .shots.one img { aspect-ratio: auto; }
+  .summary { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: clamp(20px, 3vw, 32px); display: grid; gap: 12px; }
+  .summary p { color: #d6d2c9; max-width: 75ch; }
+  .jnav { display: flex; flex-wrap: wrap; gap: 10px; }
+  .jnav a { border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; display: grid; gap: 2px; color: var(--fg); min-width: 200px; }
+  .jnav a span { font: 500 0.72rem var(--mono); color: var(--dim); }
+  .jnav a:hover { border-color: var(--gold); text-decoration: none; }
+  @media (max-width: 860px) {
+    .jhead { grid-template-columns: 1fr; }
+    .moment { grid-template-columns: 1fr; gap: 12px; }
+    .when { position: static; grid-auto-flow: column; justify-content: start; align-items: baseline; gap: 14px; }
+    .when .n { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body data-page="journeys">
+<main>
+
+<section class="pagehead">
+  <div class="glow"></div>
+  <div class="wrap">
+    <div class="eyebrow">Published Unrulr journeys</div>
+    <h1>The build, one moment at a time.</h1>
+    <p class="lede">Each sprint I post a journey to Unrulr: the moments that mattered, with screenshots of the real code, logs and designs. These are the journeys I published, newest last.</p>
+    <div class="jnav" id="jnav"></div>
+  </div>
+</section>
+
+<div id="journeys"></div>
+
+</main>
+<script>
+const J = [
+  {
+    id: 'sprint-4', title: 'Sprint 4', dates: 'Oct 12 – Oct 23, 2026', pre: 's4',
+    story: [
+      "I started the sprint on my case design's speaker. My acoustic model suggested that a dead-end pocket would cancel out the clear part of voices, so I redesigned it as a horn-shaped channel that widens toward the grille, which the model predicts should make speech noticeably louder. Before printing anything, I ran tests on the design. They flagged bolt posts that weren't attached to the case and a risk of the case tipping, so I changed the design to address both. The real test comes once it's printed.",
+      "Next I built the data to teach Helios to talk: tens of thousands of conversations, rewritten in Helios's own voice by a free AI model on my Mac. Automatic checks threw out the ones with wrong or made-up answers, and a hand check of a random sample found most of the rest solid.",
+      "At the end of the sprint, Helios finished pre-training after more than two months. I exported the model, confirmed it still writes coherent text, and backed it up to a separate drive."
+    ],
+    moments: [
+      { t: 'A channel, not an echo chamber', d: 'Oct 13', img: ['1_horn_design', '1b_horn_sound_model'], tags: 'research, engineering design, acoustics, CAD', pts: [
+        'Diagnosed the old speaker duct with an acoustic model: a dead-end pocket caused a 13.5 dB dip near 7 kHz, where speech gets its clarity',
+        'Researched how horn loudspeakers work (flare shape, mouth size)',
+        'Redesigned the chin as a short horn that widens the whole way, from 364 mm² at the throat to 1,430 mm² at the grille',
+        'Used a 45° reflector and 45° walls, so it prints with no supports',
+        'Made the grille 61% open with 1.2 mm deep slots',
+        'Modelled result (not yet tested on a print): about 6 dB louder than the bare speaker across the speech range, with no deep dips',
+        "Switched the back cover to brass heat-set inserts, sized from CNC Kitchen's specs"] },
+      { t: 'Reviewing my own design like an engineer', d: 'Oct 13', img: ['2_design_review'], tags: 'testing, quality assurance, problem solving', pts: [
+        'Wrote 88 tests, each with a pass mark set before running it, checked against the real files Fusion exported',
+        "Caught a critical bug: the four bolt posts weren't attached to the case and had no insert holes. Fixed in the design before printing",
+        'Fixed tipping in the model: from 1.47 N to 1.83 N of finger pressure, by moving the rear feet and adding 40 g of tungsten putty',
+        'Redid the heat estimate with published Raspberry Pi data. Result: a heatsink is now required',
+        "Found the speaker's 10 cm lead was too short for its route and added a 200 mm extension",
+        'Wrote the full design review report'] },
+      { t: 'Teaching Helios to talk, for free', d: 'Oct 16', img: ['3_dataset_mix'], tags: 'AI, data engineering, resourcefulness', pts: [
+        "Chose the conversation format the big AI companies use (ChatML), so text from a web page can't fake a turn",
+        'Built a dataset pipeline from four human-written datasets: SQuAD 2.0, CoQA, OpenAssistant and Dolly',
+        "Had a free open-source model on my own Mac rewrite every answer into Helios's voice: warm, calm, one to three spoken sentences",
+        'Produced 42,052 conversations in about two and a half days, unattended, at no cost',
+        "Wrote Helios's voice guide and the facts sheet it uses to describe itself",
+        "Designed it so new features like timers won't need retraining"] },
+      { t: 'Checking the data, not just making it', d: 'Oct 19 – 20', img: ['4_quality_checks'], tags: 'data quality, critical thinking, AI ethics', pts: [
+        "Ran automatic checks on all 44,209 conversations: the answer must contain the real fact, and refuse only when the answer truly isn't there",
+        'Threw out the 2,157 that failed (5%)',
+        'A hand check of 40 random conversations found 35 good',
+        'Found the weak spot: general questions with no search behind them',
+        'Caught and fixed two problems early: a third of the answers repeating one sentence, and the model inventing facts like "It is 8:15 PM"'] },
+      { t: 'Pre-training reaches the finish line', d: 'Oct 23', img: ['5_pretraining_loss'], tags: 'machine learning, persistence, milestone', pts: [
+        'Finished pre-training Helios: 58,366 steps and 15.3 billion tokens over 66 days, on one NVIDIA DGX Spark',
+        'Validation loss fell from 2.64 to 1.39',
+        'Exported the 8.28-billion-parameter weights to a 16.6 GB file, and verified it: all 1,034 tensors match, and it writes coherent text',
+        'Backed up the weights and the final checkpoint to an external drive, with every file checked against its checksum',
+        'Stopped the training service so it no longer restarts after a reboot'] },
+    ],
+    summary: "This sprint's job was to get fine-tuning ready before pre-training ended, and that's where it landed. Pre-training finished on Oct 23 after 66 days, and the weights are exported, verified and backed up off the Spark. I also designed, built and checked a 42,052-conversation dataset that teaches Helios to answer in one consistent voice. It cost nothing and ran on my own computer. I redesigned the enclosure around a researched sound horn, then reviewed my own design with 88 tests and caught a bug that would have ruined the print. Not everything landed. The fine-tuning script I committed to isn't written yet, and the case isn't printed, because the review sent the design back for fixes first. Both carry into Sprint 5. The biggest change was how I work: I now keep the whole project in one organized notebook, with a task list and a daily log, and push to GitHub as I go. The lesson I'm taking forward: checking work honestly, both the data and the design, saved me from two expensive mistakes."
+  },
+  {
+    id: 'report-card', title: "Helios's first report card", dates: 'Weekend of Oct 24, 2026', pre: 'w',
+    story: ["With pre-training done, I spent the weekend finding out what Helios actually learned. I tested it on standard benchmarks against two well-known models of similar size. It beat both on science questions and fact recall, but fell behind on stories and everyday situations, which makes sense, since its training text was mostly educational pages and no books. I also mapped what each of its experts specializes in, made it write several times faster, and rebuilt my case design in Fusion for the first time since the redesign, though the case still hasn't been printed."],
+    moments: [
+      { t: 'The first report card', d: 'Oct 24', img: ['report_card', 'speed', 'expert_map', 'case_design', 'case_render_Fusion'], tags: 'AI evaluation, machine learning, research, CAD', pts: [
+        'Ran Helios\'s first full evaluation: standard benchmarks plus my own fact and multiple-choice questions',
+        'Compared it head-to-head with GPT-2 XL and Pythia-1.4B using the same questions and scoring. Helios led on science and facts, and trailed on stories and everyday scenes',
+        "Checked the training data for copies of the test questions, and confirmed the science scores weren't memorized",
+        'Scored two earlier checkpoints and found more pre-training would add little, so the next step is fine-tuning',
+        "Mapped what all of Helios's experts specialize in (Python code, science, fiction, names of places and institutions), and tested them by switching single experts off",
+        'Added a KV cache, so Helios writes about 4 to 15 times faster with the same output',
+        'Connected Claude to Fusion and rebuilt the case design there for the first time since Oct 13. Every design check passes in the model',
+        "Made the base deeper so it shouldn't tip, instead of adding weights, and gave the case rounder, Echo Show-style corners"] },
+    ]
+  },
+  {
+    id: 'sprint-5', title: 'Sprint 5', dates: 'Oct 26 – Nov 6, 2026', pre: 's5',
+    story: [
+      "I started the sprint by getting the software ready for a model that can answer. I built a command layer, so features like timers live in code and don't need retraining, and taught the training data to read the lines that layer writes. On the device, I made the Pi start Helios by itself and wrote support for a new mic and speaker board.",
+      "The middle of the sprint was the fine-tuning script, which I wrote from scratch. A small trial caught a bug where Helios never stopped talking, and once I fixed it, the full run on the Spark took just over three hours. I built a model server and a chat program so I could actually talk to it.",
+      "Talking to it showed me bad habits the loss numbers didn't. I traced them back to the data, wrote a patch that fixed most of them, and wrote a second patch for what was left. At Formal Review #2, the model that once called itself \"Frank\" said \"I'm Helios\", in under a second."
+    ],
+    moments: [
+      { t: 'New features without retraining', d: 'Oct 30', img: ['1a_actions_code', '1b_actions_tests', '1c_timer_answers'], tags: 'software design, planning ahead, testing', pts: [
+        'Built a command layer (helios/actions.py): code does tasks like timers, and the model only says what happened',
+        'Adding a feature is one function in code. Its name joins the "abilities:" line, so "What can you do?" stays true without retraining',
+        'Put every server prompt into the same chat format Helios is trained on',
+        'Added 1,000 training conversations that teach Helios to read "action:" lines and 750 that teach it the "abilities:" line, using made-up features so it learns the idea, not one feature',
+        "Wrote 7 tests for the command layer, and a guide to which changes need retraining and which don't"] },
+      { t: 'Device software that starts itself', d: 'Oct 30 – Nov 3', img: ['2a_phone_mic', '2b_autostart_code', '2c_respeaker_code'], tags: 'embedded software, debugging, problem solving', pts: [
+        'Made the Pi start Helios by itself: power it on and the server, screen and voice all start, with no clicks',
+        "Bluetooth mics recorded only silence on the Pi 4, so I wrote a way for a phone's browser to stream its mic to the Pi instead",
+        "Added support for the ReSpeaker board as the mic and speaker. The code finds it by name each time, so it works whenever it's plugged in, with no restart",
+        'Helios answered a typed question out loud through the board'] },
+      { t: 'Writing my own fine-tuning script', d: 'Nov 3', img: ['3a_sft_masking_code', '3c_sft_tests', '3d_trial1_never_stops', '3e_trial2_fixed', '3f_full_run'], tags: 'machine learning, programming, debugging, milestone', pts: [
+        'Wrote my own fine-tuning script from scratch, with 6 tests that pass on my Mac and the Spark',
+        "It learns only from Helios's answers, batches conversations of similar length, adds two new chat tokens, and can resume if stopped",
+        'It tests itself every 50 steps, keeps the best weights, and stops once it stops improving',
+        'Caught a bug in a small trial first: Helios never ended an answer. The two new tokens were learning too slowly, so I gave them their own learning rate. Answers that end correctly went from 0% to 99%',
+        'Ran the full fine-tune on the DGX Spark: 3 h 17 min on 46,568 conversations. Test loss fell from 3.09 to 1.13',
+        'It kept what it knew: benchmark scores stayed within about a point of the base model'] },
+      { t: 'Letting Helios talk', d: 'Nov 3', img: ['4a_before_frank', '4b_after_chat'], tags: 'software engineering, AI, testing', pts: [
+        "Added a repetition penalty and stop tokens to Helios's generation code, with tests",
+        'Built a model server, so the device and other programs can ask Helios a question and get an answer back',
+        'Built a terminal chat program that remembers the conversation and trims the oldest turns when it fills up',
+        '"Hello, who are you?" went from "I\'m Frank." to "I\'m Helios, an AI voice assistant built by Asher Greer at Dawson School."',
+        'The capital of Australia went from "Sydney." to Canberra, in 0.3 to 0.6 seconds per answer'] },
+      { t: 'Finding its bad habits, then patching them', d: 'Nov 3 – 4', img: ['5a_chat_check', '5b_patch_checks_code', '5c_patch_run'], tags: 'AI, testing, data analysis, critical thinking', pts: [
+        'Chatted with the first fine-tune and found habits: refusing jokes and poems, bringing up its "body", claiming abilities it doesn\'t have, and making up missing facts',
+        'Traced each habit back to the training data and counted it, like 290 answers that mentioned having no body',
+        'Wrote a patch script that builds about 3,000 new conversations aimed at each habit, with code checks that reject bad answers',
+        'Wrote a fixed 13-conversation test to compare versions side by side',
+        'Patch 1 fixed most habits, and all three benchmark scores went up a little'] },
+      { t: 'Patch 2, aimed at what patch 1 missed', d: 'Nov 4 – 5', img: ['6a_patch2_code', '6b_git_log'], tags: 'iteration, programming, data quality', pts: [
+        'Used the side-by-side test to list what patch 1 still got wrong',
+        'Wrote the patch 2 script: about 2,350 new conversations, one set per leftover habit (greetings, names, "another one", clarifying after "huh?", and follow-ups the text can\'t answer)',
+        'Added a check in code that rejects any new answer that repeats a phrase or list item, and dropped old conversations that do',
+        'Ran the side-by-side test against the live model server, not just saved files'] },
+    ],
+    summary: "This sprint's job was to turn Helios from a model that only continues text into one that answers, and that landed. I wrote my own fine-tuning script with tests, caught a bug in a small trial before the real run, and fine-tuned Helios on 46,568 conversations. It now answers in its own voice in under a second, and it kept what it knew. I built the software around it too: a command layer so new features don't need retraining, a model server and a chat program. Chatting with it showed bad habits, so I traced them to the data and wrote a patch that fixed most of them. A second patch is written for the rest. Not everything landed. Of the six things I committed to, I finished two and a half. These carry into Sprint 6. The lesson I'm taking forward: talking to the model taught me more than its loss numbers did."
+  },
+];
+
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+document.getElementById('jnav').innerHTML = J.map(j => `<a href="#${j.id}"><span>${j.dates}</span><b>${esc(j.title)}</b></a>`).join('');
+document.getElementById('journeys').innerHTML = J.map(j => `
+<section class="block" id="${j.id}">
+  <div class="wrap">
+    <div class="jhead">
+      <div class="sechead"><div class="eyebrow">${j.dates}</div><h2>${esc(j.title)}</h2>
+        <div class="chips"><span class="chip gold">${j.moments.length} moment${j.moments.length > 1 ? 's' : ''}</span></div></div>
+      <div class="story">${j.story.map(p => `<p>${esc(p)}</p>`).join('')}</div>
+    </div>
+    <div class="moments">${j.moments.map((m, i) => `
+      <article class="moment">
+        <div class="when"><span class="n">${String(i + 1).padStart(2, '0')}</span><span class="d">${m.d}</span></div>
+        <div class="mbody">
+          <h3>${esc(m.t)}</h3>
+          <ul>${m.pts.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+          <div class="shots${m.img.length === 1 ? ' one' : ''}">${m.img.map(f => `<img class="zoom" loading="lazy" src="img/j/${j.pre}_${f}.jpg" alt="${esc(m.t)}">`).join('')}</div>
+          <div class="chips">${m.tags.split(', ').map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div>
+        </div>
+      </article>`).join('')}
+    </div>
+    ${j.summary ? `<div class="summary"><span class="eyebrow">Sprint summary</span><p>${esc(j.summary)}</p></div>` : ''}
+  </div>
+</section>`).join('');
+</script>
+<script src="site.js"></script>
+</body>
+</html>

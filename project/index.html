@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Helios</title>
+<meta name="description" content="Helios: a voice device and the language model behind it, both built from scratch.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Layout: a fixed 3D stage; chapter text floats on the left (bottom card on phones)
+     while the camera flies between scenes on one desk at sunset. */
+  :root {
+    --bg: #0b0e14;
+    --bg-2: #141a26;
+    --text: #eef0f4;
+    --muted: #a3abb9;
+    --faint: #677083;
+    --gold: #f5a623;
+    --line: rgba(255, 255, 255, 0.09);
+    --glass: rgba(11, 14, 20, 0.74);
+    --display: "Space Grotesk", Inter, system-ui, sans-serif;
+    --body: Inter, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    color-scheme: dark;   /* one deliberate dark look in every theme */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 400 17px/1.6 var(--body); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+
+  #stage { position: fixed; inset: 0; z-index: 0; background: var(--bg); }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  /* a soft shade behind the text so it reads over the scene */
+  #stage::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(90deg, rgba(8, 10, 15, 0.82) 0%, rgba(8, 10, 15, 0.55) 30%, rgba(8, 10, 15, 0) 52%);
+  }
+  @media (max-width: 760px) { #stage::after { background: linear-gradient(0deg, rgba(8, 10, 15, 0.85) 0%, rgba(8, 10, 15, 0) 55%); } }
+
+  #scroll { position: relative; z-index: 1; pointer-events: none; }
+  #scroll section { height: 125vh; }
+  #scroll section:first-child { height: 100vh; }
+  #scroll section:last-child { height: 135vh; }
+
+  .panel {
+    position: fixed; z-index: 2;
+    left: clamp(24px, 6vw, 104px); top: 50%;
+    width: min(440px, 36vw);
+    transform: translateY(calc(-50% + var(--shift, 0px)));
+    opacity: 0; visibility: hidden; pointer-events: none;
+  }
+  .panel.on { visibility: visible; }
+  .panel[data-k="0"] { opacity: 1; visibility: visible; }   /* readable before the script runs */
+  .eyebrow {
+    font: 600 12px/1 var(--body); letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--gold); margin: 0 0 18px; display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gold);
+    box-shadow: 0 0 12px var(--gold);
+  }
+  h1, h2 { font-family: var(--display); font-weight: 600; margin: 0 0 18px; text-wrap: balance; }
+  h1 { font-size: clamp(56px, 9vw, 124px); line-height: 0.92; letter-spacing: -0.035em; }
+  h2 { font-size: clamp(28px, 3.3vw, 44px); line-height: 1.08; letter-spacing: -0.02em; }
+  .panel p { color: var(--muted); margin: 0 0 14px; }
+  .facts { list-style: none; padding: 0; margin: 20px 0 0; border-top: 1px solid var(--line); }
+  .facts li {
+    display: flex; justify-content: space-between; gap: 16px;
+    padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px;
+  }
+  .facts span:first-child { color: var(--faint); }
+  .facts span:last-child { color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+  .steps { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 10px; }
+  .steps li { display: grid; grid-template-columns: 54px 1fr; gap: 12px; font-size: 14.5px; color: var(--muted); }
+  .steps b { font: 500 12px/1.9 var(--mono); color: var(--gold); letter-spacing: 0.02em; }
+  .steps em { font-style: normal; color: var(--text); }
+  .hint {
+    margin-top: 34px; font-size: 13px; color: var(--faint); letter-spacing: 0.06em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .hint i {
+    width: 1px; height: 28px; background: linear-gradient(var(--gold), transparent);
+    animation: drip 1.8s ease-in-out infinite;
+  }
+  @keyframes drip { 0%,100% { transform: scaleY(0.4); transform-origin: top; } 50% { transform: scaleY(1); } }
+  @media (prefers-reduced-motion: reduce) { .hint i { animation: none; } }
+
+  /* Labels pinned to things in the 3D scene */
+  .tag {
+    position: fixed; z-index: 2; left: 0; top: 0;
+    font: 500 13px/1.3 var(--body); color: var(--text);
+    padding: 7px 11px; border-radius: 8px;
+    background: var(--glass); border: 1px solid var(--line);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.35s ease;
+  }
+  .tag small { display: block; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+  .tag.pin::before {
+    content: ""; position: absolute; left: -16px; top: 50%; width: 12px; height: 1px; background: var(--gold);
+  }
+  .tag.pin::after {
+    content: ""; position: absolute; left: -20px; top: calc(50% - 3px);
+    width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
+  }
+  .tag.axis {
+    background: none; border: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+    font: 400 11.5px/1 var(--mono); color: var(--faint); padding: 0;
+  }
+  .tag.big { font: 600 15px/1.2 var(--display); }
+  .tag.big small { font: 400 11.5px/1.3 var(--mono); color: var(--gold); margin-top: 3px; }
+
+  #rail {
+    position: fixed; z-index: 3; right: calc(clamp(16px, 2.4vw, 36px) + env(safe-area-inset-right, 0px)); top: 50%;
+    transform: translateY(-50%); display: flex; flex-direction: column; gap: 12px;
+  }
+  #rail button {
+    all: unset; cursor: pointer; display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+    font: 500 12px/1 var(--body); color: var(--faint); letter-spacing: 0.04em;
+  }
+  #rail button span { opacity: 0; transform: translateX(6px); transition: all 0.25s ease; }
+  #rail:hover button span, #rail button.on span { opacity: 1; transform: none; }
+  #rail button.on { color: var(--text); }
+  #rail button i { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--faint); transition: all 0.25s ease; }
+  #rail button.on i { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 10px var(--gold); }
+  #rail button:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 4px; }
+
+  #loader {
+    position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
+    background: var(--bg); transition: opacity 0.6s ease;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+  #loader .ring {
+    width: 56px; height: 56px; border-radius: 50%; margin: 0 auto;
+    background: conic-gradient(var(--gold) var(--p, 0%), var(--line) 0);
+    -webkit-mask: radial-gradient(circle, transparent 23px, #000 24px);
+            mask: radial-gradient(circle, transparent 23px, #000 24px);
+  }
+  #loader p { margin: 16px 0 0; color: var(--faint); font-size: 13px; letter-spacing: 0.08em; text-align: center; }
+
+  @media (max-width: 760px) {
+    body { font-size: 15.5px; }
+    .panel {
+      left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+      width: auto; top: auto; bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+      transform: translateY(var(--shift, 0px));
+      padding: 18px 18px 14px; border-radius: 16px;
+      background: var(--glass); border: 1px solid var(--line);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    .panel.hero { background: none; border: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+    h1 { font-size: 64px; }
+    h2 { font-size: 24px; margin-bottom: 8px; }
+    .eyebrow { margin-bottom: 12px; letter-spacing: 0.14em; font-size: 11px; }
+    .panel p { font-size: 14px; margin-bottom: 6px; line-height: 1.5; }
+    .facts { margin-top: 10px; }
+    .facts li { padding: 6px 0; font-size: 13px; }
+    .steps { gap: 6px; margin-top: 10px; }
+    .steps li { font-size: 13px; grid-template-columns: 46px 1fr; gap: 8px; }
+    .hide-sm { display: none; }
+    .hint { margin-top: 16px; }
+    #rail { display: none; }
+    .tag { font-size: 11.5px; padding: 5px 8px; }
+  }
+</style>
+
+<div id="stage"></div>
+<div id="loader"><div><div class="ring"></div><p id="loadtext">Loading the models</p></div></div>
+
+<!-- ============ Chapter text (facts are from the Helios repo; keep them in sync) ============ -->
+<div class="panel hero" data-k="0">
+  <p class="eyebrow">Dawson School capstone · 2026</p>
+  <h1>Helios</h1>
+  <p>A voice device for the desk, and the 8.3-billion-parameter language model behind it. Both built from scratch by one student.</p>
+  <div class="hint"><i></i>Scroll to follow the build</div>
+</div>
+
+<div class="panel" data-k="1">
+  <p class="eyebrow">The device</p>
+  <h2>A small printed case with a screen, a speaker and a sun on each side.</h2>
+  <p>Designed in Autodesk Fusion and 3D printed in PETG. Gold sun inlays sit on both sides.</p>
+  <ul class="facts">
+    <li><span>Width × height × depth</span><span>136 × 110 × 87 mm</span></li>
+    <li><span>Design files</span><span>Fusion, version 4</span></li>
+  </ul>
+</div>
+
+<div class="panel" data-k="2">
+  <p class="eyebrow">Design process</p>
+  <h2>Four versions since October.</h2>
+  <p class="hide-sm">Each version came from what the last one got wrong. Shown left to right: v1, v3 and v4.</p>
+  <ul class="steps">
+    <li><b>v1</b><span><em>Printed Oct 26.</em> The speaker slid loose, the cords had no room, and it looked like an old TV.</span></li>
+    <li><b>v2</b><span><em>Oct 26–27.</em> No chin, the speaker firing down, tungsten weights in the screen ledge. Set aside.</span></li>
+    <li><b>v3</b><span><em>Oct 29.</em> v1's inside on a low plinth, with a 204 g steel plate sliding in from the back as the weight.</span></li>
+    <li><b>v4</b><span><em>Nov 10.</em> A fresh start from v1: the speaker clamped down, three cord clips, the mic board on two screws.</span></li>
+  </ul>
+</div>
+
+<div class="panel" data-k="3">
+  <p class="eyebrow">Testing</p>
+  <h2>Checked with numbers before it was printed.</h2>
+  <p>A tap at the top of the screen should not tip it over. A tipping model set the case depth: 56 mm with nothing added, instead of 48 mm with tungsten putty in the corners.</p>
+  <ul class="facts">
+    <li><span>Tap it must survive</span><span>1.5 N</span></li>
+    <li><span>Depth 48 mm, no putty</span><span>1.55 N</span></li>
+    <li><span>Depth 56 mm, no putty</span><span>1.89 N</span></li>
+  </ul>
+</div>
+
+<div class="panel" data-k="4">
+  <p class="eyebrow">Inside</p>
+  <h2>Everything fits in one small box.</h2>
+  <p>A screen, a computer, a microphone board and a speaker, held by printed clamps, posts and cord clips.</p>
+</div>
+
+<div class="panel" data-k="5">
+  <p class="eyebrow">The screen</p>
+  <h2>A 5-inch touchscreen up front.</h2>
+  <p>It shows the time, the sun's path through the day, and what Helios is doing: listening, thinking or answering.</p>
+  <ul class="facts">
+    <li><span>Display</span><span>Hosyond 5″ DSI</span></li>
+    <li><span>Resolution</span><span>800 × 480</span></li>
+  </ul>
+</div>
+
+<div class="panel" data-k="6">
+  <p class="eyebrow">The computer</p>
+  <h2>A Raspberry Pi 4 runs the device.</h2>
+  <p>It listens for the wake word, turns speech into text with Moonshine, and speaks answers with Piper.</p>
+  <ul class="facts">
+    <li><span>Board</span><span>Raspberry Pi 4</span></li>
+    <li><span>Speech to text</span><span>Moonshine</span></li>
+    <li><span>Text to speech</span><span>Piper</span></li>
+  </ul>
+</div>
+
+<div class="panel" data-k="7">
+  <p class="eyebrow">Ears and voice</p>
+  <h2>Microphones on top, a speaker below.</h2>
+  <p>The ReSpeaker Lite board on top is the microphone that hears &ldquo;Hey Helios.&rdquo; A 3 W speaker sits under the screen, behind the front grille.</p>
+  <ul class="facts">
+    <li><span>Microphones</span><span>ReSpeaker Lite</span></li>
+    <li><span>Speaker</span><span>MakerHawk 3 W, 8 Ω</span></li>
+  </ul>
+</div>
+
+<div class="panel" data-k="8">
+  <p class="eyebrow">One question</p>
+  <h2>The thinking happens on a second machine.</h2>
+  <p class="hide-sm">The device sends each question over the network to an NVIDIA DGX Spark, which runs the full model.</p>
+  <ul class="steps">
+    <li><b>Pi</b><span>Hears <em>&ldquo;Hey Helios&rdquo;</em> and turns the question into text.</span></li>
+    <li><b>Spark</b><span>Looks up live facts (weather, Wikipedia, news) and ranks them with BM25.</span></li>
+    <li><b>Spark</b><span>Helios reads those facts and writes the answer.</span></li>
+    <li><b>Pi</b><span>Piper speaks the answer out loud.</span></li>
+  </ul>
+</div>
+
+<div class="panel" data-k="9">
+  <p class="eyebrow">Inside the model</p>
+  <h2>24 layers, 12 experts in each.</h2>
+  <p>Every word passes up through all 24 layers. In each layer a router picks 2 of the 12 experts, so only a fifth of the model works on any one word.</p>
+  <ul class="facts">
+    <li><span>Parameters</span><span>8.28 B total, 1.68 B active</span></li>
+    <li><span>Experts</span><span>12 per layer, top 2</span></li>
+    <li><span>Context</span><span>4,096 tokens</span></li>
+    <li><span>Tokenizer</span><span>own, 50,304 tokens</span></li>
+  </ul>
+</div>
+
+<div class="panel" data-k="10">
+  <p class="eyebrow">Training</p>
+  <h2>Trained from scratch on 15.3 billion tokens.</h2>
+  <p>66 days on one DGX Spark, from Aug 18 to Oct 23. In November it was fine-tuned on conversations in a spoken style, so it answers like a voice assistant.</p>
+  <ul class="facts">
+    <li><span>Steps</span><span>58,300</span></li>
+    <li><span>Loss, step 1,750 → end</span><span>3.15 → 1.90</span></li>
+    <li><span>Speed, before → after tuning</span><span>1,712 → 2,874 tok/s</span></li>
+  </ul>
+</div>
+
+<div class="panel" data-k="11">
+  <p class="eyebrow">Helios</p>
+  <h2>Say &ldquo;Hey Helios.&rdquo;</h2>
+  <p>Asher Greer · Dawson School · 2026</p>
+</div>
+
+<!-- Labels pinned in 3D; data-at names a point the script knows -->
+<div class="tag pin" data-at="display">Display<small>Hosyond 5″ DSI</small></div>
+<div class="tag pin" data-at="pi">Raspberry Pi 4<small>runs the voice pipeline</small></div>
+<div class="tag pin" data-at="respeaker">ReSpeaker Lite<small>microphones</small></div>
+<div class="tag pin" data-at="speaker">Speaker<small>MakerHawk 3 W</small></div>
+<div class="tag pin" data-at="back_cover">Back cover<small>screws on</small></div>
+<div class="tag big" data-at="v1">v1<small>printed Oct 26</small></div>
+<div class="tag big" data-at="v3">v3<small>plinth, Oct 29</small></div>
+<div class="tag big" data-at="v4">v4<small>now, Nov 10</small></div>
+<div class="tag pin" data-at="tap">1.5 N tap<small>at the top of the screen</small></div>
+<div class="tag big" data-at="spark">DGX Spark<small>runs Helios</small></div>
+<div class="tag big" data-at="device">Helios device<small>Raspberry Pi 4</small></div>
+<div class="tag axis" data-at="y3">loss 3.0</div>
+<div class="tag axis" data-at="y25">2.5</div>
+<div class="tag axis" data-at="y2">2.0</div>
+<div class="tag axis" data-at="x0">step 0</div>
+<div class="tag axis" data-at="x29">29,000</div>
+<div class="tag axis" data-at="x58">58,300</div>
+<div class="tag big" data-at="lossEnd">1.90<small>end of training, Oct 23</small></div>
+<div class="tag axis" data-at="brainTop">layer 24</div>
+<div class="tag axis" data-at="brainBottom">layer 1</div>
+
+<nav id="rail" aria-label="Chapters"></nav>
+
+<div id="scroll" aria-hidden="true">
+  <section></section><section></section><section></section><section></section>
+  <section></section><section></section><section></section><section></section>
+  <section></section><section></section><section></section><section></section>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const clamp01 = v => Math.min(1, Math.max(0, v));
+const ease = t => t * t * (3 - 2 * t);
+const narrow = () => innerWidth <= 760;
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- World layout (mm; y up, the device faces +z) ---------- */
+const DEV = V(0, 55, 0);                 // the v4 device sits at the origin
+const VERS = { v1: V(-470, 0, 10), v3: V(-235, 0, 10) };
+const SPARK = V(430, 0, -150);           // DGX Spark: 150 × 150 × 50.5 mm
+const BRAIN = { x: 430, z: -150, y0: 300, step: 20, r: 105 };   // 24 layers
+const CHART = { x0: 760, x1: 1560, y0: 300, h: 460, z: -150, lo: 1.8, hi: 3.2, steps: 58500 };
+
+/* ---------- Chapters: camera pose + what is shown ----------
+   t: where the camera looks, az/el: degrees round it (az 0 = from the front),
+   dist: mm, x: frame shift (scene sits right of the text). Scene amounts 0..1. */
+const CH = [
+  { name: 'Helios',         t: DEV,              az: -30, el: 6,  dist: 560,  x: .17 },
+  { name: 'The device',     t: DEV,              az: -78, el: 5,  dist: 540,  x: .17 },
+  { name: 'Design process', t: V(-235, 60, 10),  az: -10, el: 13, dist: 1320, x: .2,  vers: 1, nd: 2.3 },
+  { name: 'Testing',        t: V(0, 60, -10),    az: -88, el: 6,  dist: 620,  x: .17, tip: 1 },
+  { name: 'Inside',         t: DEV,              az: -36, el: 22, dist: 900,  x: .2,  explode: 1, ghost: 1 },
+  { name: 'Screen',         t: DEV,              az: -14, el: 8,  dist: 550,  x: .2,  explode: 1, ghost: 1, focus: ['display'] },
+  { name: 'Computer',       t: DEV,              az: 160, el: 30, dist: 560,  x: .2,  explode: 1, ghost: 1, focus: ['pi'] },
+  { name: 'Ears and voice', t: DEV,              az: -48, el: 26, dist: 700,  x: .2,  explode: 1, ghost: 1, focus: ['respeaker', 'speaker'] },
+  { name: 'One question',   t: V(215, 95, -75),  az: -14, el: 17, dist: 1150, x: .2,  spark: 1, link: 1, nd: 2.1 },
+  { name: 'The model',      t: V(430, 520, -150),az: -22, el: 9,  dist: 1900, x: .2,  spark: 1, link: .35, brain: 1 },
+  { name: 'Training',       t: V(1160, 530, -150),az: -3, el: 3,  dist: 1900, x: .2,  spark: 1, brain: .45, chart: 1, nd: 2.5 },
+  { name: 'End',            t: DEV,              az: -16, el: 10, dist: 540,  x: .17, spark: 1 },
+];
+const AMOUNTS = ['vers', 'tip', 'explode', 'ghost', 'spark', 'link', 'brain', 'chart'];
+
+/* How far each part of the device moves when it comes apart (mm). side: extra x away from the middle. */
+const EXPLODE = {
+  shell: { d: [0, 0, 0] }, back_cover: { d: [0, 0, -120] }, display: { d: [0, 0, 80] },
+  display_clamps: { d: [0, 0, 48], side: 22 }, rays: { d: [0, 0, 0], side: 48 },
+  pi: { d: [0, 6, -50] }, respeaker: { d: [0, 62, -12] }, button_caps: { d: [0, 88, -12] },
+  speaker: { d: [0, -58, 22] }, speaker_clamp: { d: [0, -34, 14] }, cord_clips: { d: [0, 0, -70], side: 18 },
+};
+
+/* ---------- Renderer, scene, light ---------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.55;
+const HORIZON = new THREE.Color(0x231c26);
+scene.fog = new THREE.Fog(HORIZON, 2600, 9000);
+
+const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 10, 40000);
+
+const SUN_DIR = V(0.7, 0.075, -0.78).normalize();   // low, behind and right of the device
+const key = new THREE.DirectionalLight(0xfff0dc, 1.5);
+key.position.set(-300, 520, 420);
+key.castShadow = true;
+key.shadow.mapSize.set(4096, 4096);
+Object.assign(key.shadow.camera, { left: -700, right: 900, top: 500, bottom: -500, near: 50, far: 2500 });
+key.shadow.bias = -0.0003;
+key.shadow.radius = 4;
+scene.add(key, key.target);
+const sunLight = new THREE.DirectionalLight(0xffa64d, 0.9);   // warm back light from the sunset
+sunLight.position.copy(SUN_DIR).multiplyScalar(2000);
+scene.add(sunLight);
+scene.add(new THREE.HemisphereLight(0xbfcaff, 0x1a1410, 0.35));
+
+/* Sky: a gradient dome with the sun low on the horizon */
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(20000, 48, 24),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: {
+      top: { value: new THREE.Color(0x06080e) }, mid: { value: new THREE.Color(0x121626) },
+      horizon: { value: HORIZON }, sunDir: { value: SUN_DIR }, sunCol: { value: new THREE.Color(0xffa23a) },
+    },
+    vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 top, mid, horizon, sunDir, sunCol; varying vec3 vDir;
+      void main(){
+        float h = vDir.y;
+        vec3 c = mix(horizon, mid, smoothstep(0.0, 0.18, h));
+        c = mix(c, top, smoothstep(0.18, 0.7, h));
+        float s = max(dot(normalize(vDir), sunDir), 0.0);
+        c += sunCol * (pow(s, 6.0) * 0.22 + pow(s, 60.0) * 0.35);
+        c += vec3(1.0, 0.82, 0.55) * smoothstep(0.9993, 0.9997, s) * 0.9;
+        c = mix(c, horizon * 0.55, smoothstep(0.0, -0.25, h));
+        gl_FragColor = vec4(c, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  })
+);
+sky.renderOrder = -1;
+scene.add(sky);
+
+/* Sun rays: a slowly turning sunburst behind the sun (Helios is the sun) */
+function rayTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.translate(256, 256);
+  for (let i = 0; i < 24; i++) {
+    g.rotate(Math.PI * 2 / 24);
+    const grd = g.createLinearGradient(0, 0, 250, 0);
+    grd.addColorStop(0, 'rgba(255,190,90,0.55)'); grd.addColorStop(1, 'rgba(255,170,60,0)');
+    g.fillStyle = grd;
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(250, -9 - (i % 2) * 6); g.lineTo(250, 9 + (i % 2) * 6); g.fill();
+  }
+  const core = g.createRadialGradient(0, 0, 0, 0, 0, 120);
+  core.addColorStop(0, 'rgba(255,200,120,0.35)'); core.addColorStop(1, 'rgba(255,170,60,0)');
+  g.fillStyle = core; g.beginPath(); g.arc(0, 0, 120, 0, Math.PI * 2); g.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const sunRays = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: rayTexture(), transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending, opacity: 0.55,
+}));
+sunRays.scale.set(4200, 4200, 1);
+scene.add(sunRays);
+
+/* The desk: dark walnut, fading into the dusk */
+function woodTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 1024;
+  const g = c.getContext('2d');
+  g.fillStyle = '#16110d'; g.fillRect(0, 0, 1024, 1024);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 420; i++) {
+    const y = rnd() * 1024, a = 0.03 + rnd() * 0.07, w = 0.6 + rnd() * 2.2;
+    g.strokeStyle = rnd() > 0.5 ? `rgba(70,48,30,${a})` : `rgba(8,6,4,${a * 1.5})`;
+    g.lineWidth = w; g.beginPath(); g.moveTo(0, y);
+    for (let x = 0; x <= 1024; x += 64) g.lineTo(x, y + Math.sin(x / 140 + i) * 6 + (rnd() - 0.5) * 3);
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(8, 8); t.anisotropy = 8;
+  t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+// a long desk with an edge; the dusk carries on past it
+const deskMat = new THREE.MeshStandardMaterial({ map: woodTexture(), roughness: 0.78, metalness: 0.0, envMapIntensity: 0.35 });
+deskMat.map.repeat.set(3.4, 2);
+const desk = new THREE.Mesh(new RoundedBoxGeometry(4400, 36, 2600, 2, 6), deskMat);
+desk.position.set(500, -18, 0);
+desk.receiveShadow = true;
+scene.add(desk);
+
+
+/* Dust in the light */
+const DUST = 700;
+const dustPos = new Float32Array(DUST * 3);
+let dseed = 3; const drnd = () => (dseed = (dseed * 16807) % 2147483647) / 2147483647;
+for (let i = 0; i < DUST; i++) {
+  dustPos[i * 3] = -900 + drnd() * 2700; dustPos[i * 3 + 1] = drnd() * 1000; dustPos[i * 3 + 2] = -900 + drnd() * 1500;
+}
+const dustGeo = new THREE.BufferGeometry();
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dot = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'); const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
+})();
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+  map: dot, color: 0xffd28a, size: 3.2, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+scene.add(dust);
+
+/* ---------- Materials ---------- */
+const GOLD = 0xf0b440, SHELL = 0xece9e2;
+function materialFor(part, [r, g, b]) {
+  const gold = r === 232 && g === 173;
+  const metal = r === 190 || r === 160;
+  const m = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace),
+    metalness: gold ? 0.55 : metal ? 0.6 : 0.05,
+    roughness: gold ? 0.38 : (part === 'shell' || part === 'back_cover' ? 0.62 : 0.45),
+    transparent: true,
+  });
+  if (gold) m.color.set(GOLD);
+  return m;
+}
+const fadeable = [];   // { mat, group: 'vers' | 'spark' | ... , base }
+function fade(mat, group, base = 1) { mat.transparent = true; fadeable.push({ mat, group, base }); return mat; }
+
+/* ---------- The v4 device (from Fusion) ---------- */
+const pivot = new THREE.Group();          // tips about the back bottom edge in the testing chapter
+const device = new THREE.Group();
+pivot.add(device); scene.add(pivot);
+const parts = {};
+
+async function fetchWithProgress(url, onBytes) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(url + ' ' + res.status);
+  const reader = res.body.getReader(); const chunks = [];
+  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); onBytes(value.length); }
+  return new Blob(chunks).arrayBuffer();
+}
+const TOTAL = 1128740 + (808284 + 754784 + 269584 + 322484) * 4 / 3;
+let loaded = 0;
+const bump = n => { loaded += n; document.querySelector('#loader .ring').style.setProperty('--p', Math.min(99, loaded / TOTAL * 100) + '%'); };
+
+async function loadDevice() {
+  const data = JSON.parse(new TextDecoder().decode(await fetchWithProgress('model/helios_v4.json', bump)));
+  const all = new THREE.Box3();
+  for (const [name, bodies] of Object.entries(data.parts)) {
+    const group = new THREE.Group(); const mats = [];
+    for (const b of bodies) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(b.pos, 3));
+      geo.setAttribute('normal', new THREE.Float32BufferAttribute(b.nrm, 3));
+      geo.setIndex(b.idx); geo.computeBoundingBox();
+      const mat = materialFor(name, b.color);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true; mesh.receiveShadow = name !== 'shell';
+      mesh.userData.sign = Math.sign(geo.boundingBox.getCenter(V()).x) || 0;
+      mesh.userData.isScreen = name === 'display' && b.color[0] === 30;
+      group.add(mesh); mats.push(mat); all.union(geo.boundingBox);
+    }
+    device.add(group); parts[name] = { group, mats };
+  }
+  for (const p of Object.values(parts)) {
+    const bb = new THREE.Box3();
+    for (const m of p.group.children) bb.union(m.geometry.boundingBox);
+    p.base = bb.getCenter(V());
+  }
+  const c = all.getCenter(V());
+  device.position.set(-c.x, -all.min.y, -c.z);
+  device.userData.depth = all.max.z - all.min.z;
+  // tip about the back bottom edge
+  pivot.position.set(0, 0, -device.userData.depth / 2);
+  device.position.z += device.userData.depth / 2;
+  addScreen();
+}
+
+function addScreen() {
+  const disp = parts.display;
+  const panel = disp.group.children.find(m => m.userData.isScreen);
+  if (!panel) return;
+  const bb = panel.geometry.boundingBox;
+  const tex = new THREE.TextureLoader().load('img/screen_idle.png');
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const glass = new THREE.Mesh(
+    new THREE.PlaneGeometry(108, 64.8),   // 5" 800 × 480 active area
+    new THREE.MeshStandardMaterial({
+      map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.9,
+      roughness: 0.35, metalness: 0, color: 0x000000, transparent: true, envMapIntensity: 0.12,
+    })
+  );
+  const nrm = panel.geometry.attributes.normal, n = V(), sum = V();
+  for (let i = 0; i < nrm.count; i++) { n.fromBufferAttribute(nrm, i); if (n.z > 0.8) sum.add(n); }
+  sum.normalize();
+  glass.position.copy(bb.getCenter(V())).addScaledVector(sum, 3.3);
+  glass.quaternion.setFromUnitVectors(V(0, 0, 1), sum);
+  glass.userData = { sign: 0, home: glass.position.clone() };
+  disp.group.add(glass); disp.mats.push(glass.material);
+}
+
+/* ---------- The tap in the tipping test ---------- */
+const tapArrow = new THREE.Group();
+{
+  const m = fade(new THREE.MeshBasicMaterial({ color: 0xf5a623, transparent: true }), 'tip');
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 60, 12), m);
+  shaft.rotation.x = Math.PI / 2; shaft.position.z = 40;
+  const head = new THREE.Mesh(new THREE.ConeGeometry(5, 14, 16), m);
+  head.rotation.x = -Math.PI / 2; head.position.z = 4;
+  tapArrow.add(shaft, head);
+  tapArrow.position.set(0, 104, 0);
+  scene.add(tapArrow);
+}
+
+/* ---------- Earlier versions (STL exports from the repo) ---------- */
+const versions = new THREE.Group(); scene.add(versions);
+const versionTops = {};
+async function loadVersions() {
+  const loader = new STLLoader();
+  const parse = async (url) => {
+    // meshes ship as base64 binary STL inside JSON (artifacts don't serve .stl)
+    const j = JSON.parse(new TextDecoder().decode(await fetchWithProgress(url, bump)));
+    const bin = Uint8Array.from(atob(j.b64), ch => ch.charCodeAt(0));
+    const g = loader.parse(bin.buffer);
+    g.rotateX(-Math.PI / 2);           // Fusion Z-up → y-up, front -Y → +z
+    g.computeVertexNormals();
+    return g;
+  };
+  const place = (meshes, at, name) => {
+    const grp = new THREE.Group();
+    meshes.forEach(m => grp.add(m));
+    const bb = new THREE.Box3().setFromObject(grp);
+    const c = bb.getCenter(V());
+    grp.position.set(at.x - c.x, at.y - bb.min.y, at.z - c.z);
+    versions.add(grp);
+    versionTops[name] = V(at.x, bb.max.y - bb.min.y + 26, at.z);
+  };
+  const mk = (geo, color, gold) => {
+    const m = new THREE.Mesh(geo, fade(new THREE.MeshStandardMaterial({
+      color, roughness: gold ? 0.38 : 0.62, metalness: gold ? 0.55 : 0.05,
+    }), 'vers'));
+    m.castShadow = true; m.receiveShadow = true; return m;
+  };
+  const [v1, s3, b3, g3] = await Promise.all(['model/v1.stl.json', 'model/v3_shell.stl.json', 'model/v3_back.stl.json', 'model/v3_gold.stl.json'].map(parse));
+  place([mk(v1, SHELL)], VERS.v1, 'v1');
+  place([mk(s3, SHELL), mk(b3, SHELL), mk(g3, GOLD, true)], VERS.v3, 'v3');
+}
+
+/* ---------- DGX Spark (150 × 150 × 50.5 mm) ---------- */
+const spark = new THREE.Group();
+function foamTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.fillStyle = '#b8955a'; g.fillRect(0, 0, 512, 512);
+  let s = 11; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 2600; i++) {
+    const x = r() * 512, y = r() * 512, rad = 2 + r() * 5;
+    g.fillStyle = `rgba(20,14,6,${0.55 + r() * 0.4})`;
+    g.beginPath(); g.ellipse(x, y, rad, rad * (0.6 + r() * 0.5), r() * 3, 0, Math.PI * 2); g.fill();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+{
+  const bodyMat = fade(new THREE.MeshStandardMaterial({ color: 0xc8a467, metalness: 0.9, roughness: 0.32 }), 'spark');
+  const body = new THREE.Mesh(new RoundedBoxGeometry(150, 50.5, 150, 4, 3), bodyMat);
+  body.position.y = 25.25; body.castShadow = true; body.receiveShadow = true;
+  const foamTex = foamTexture();
+  const foamMat = fade(new THREE.MeshStandardMaterial({ map: foamTex, metalness: 0.8, roughness: 0.45, bumpMap: foamTex, bumpScale: 1.5 }), 'spark');
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(140, 42), foamMat);
+  front.position.set(0, 25.25, 75.2);
+  const back = front.clone(); back.rotation.y = Math.PI; back.position.z = -75.2;
+  const ledMat = fade(new THREE.MeshBasicMaterial({ color: 0x8fe3b0 }), 'spark');
+  const led = new THREE.Mesh(new THREE.CircleGeometry(1.4, 16), ledMat);
+  led.position.set(62, 8, 75.4);
+  spark.add(body, front, back, led);
+  spark.position.copy(SPARK);
+  spark.rotation.y = -0.35;
+  scene.add(spark);
+}
+
+/* ---------- The trip: device ⇄ Spark ---------- */
+const linkCurve = new THREE.QuadraticBezierCurve3(V(0, 118, -30), V(215, 330, -90), V(430, 58, -150));
+const linkMat = fade(new THREE.MeshBasicMaterial({ color: 0xf5a623, transparent: true, opacity: 0.5, depthWrite: false }), 'link', 0.5);
+scene.add(new THREE.Mesh(new THREE.TubeGeometry(linkCurve, 80, 0.7, 6), linkMat));
+const packets = [];
+for (let i = 0; i < 6; i++) {
+  const up = i < 3;
+  const m = new THREE.Sprite(fade(new THREE.SpriteMaterial({
+    map: dot, color: up ? 0xbfe0ff : 0xffc35a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }), 'link'));
+  m.scale.set(16, 16, 1);
+  m.userData = { up, off: (i % 3) / 3 };
+  packets.push(m); scene.add(m);
+}
+
+/* ---------- Inside the model: 24 layers × 12 experts ---------- */
+const brain = new THREE.Group(); scene.add(brain);
+const LAYERS = 24, EXPERTS = 12;
+const expertGeo = new RoundedBoxGeometry(17, 9, 17, 2, 2);
+const expertMat = fade(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true }), 'brain');
+const experts = new THREE.InstancedMesh(expertGeo, expertMat, LAYERS * EXPERTS);
+const DIM = new THREE.Color(0x2b3448), HOT = new THREE.Color(0xffb43c), tmpC = new THREE.Color();
+const heat = new Float32Array(LAYERS * EXPERTS);
+{
+  const m4 = new THREE.Matrix4();
+  for (let l = 0; l < LAYERS; l++) for (let e = 0; e < EXPERTS; e++) {
+    const a = e / EXPERTS * Math.PI * 2 + l * 0.13;
+    m4.makeRotationY(-a);
+    m4.setPosition(BRAIN.x + Math.cos(a) * BRAIN.r, BRAIN.y0 + l * BRAIN.step, BRAIN.z + Math.sin(a) * BRAIN.r);
+    experts.setMatrixAt(l * EXPERTS + e, m4);
+    experts.setColorAt(l * EXPERTS + e, DIM);
+  }
+  brain.add(experts);
+  const ringMat = fade(new THREE.MeshBasicMaterial({ color: 0x5a6680, transparent: true, depthWrite: false }), 'brain', 0.35);
+  for (let l = 0; l < LAYERS; l++) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(BRAIN.r, 0.5, 4, 72), ringMat);
+    ring.rotation.x = Math.PI / 2; ring.position.set(BRAIN.x, BRAIN.y0 + l * BRAIN.step, BRAIN.z);
+    brain.add(ring);
+  }
+  const beamMat = fade(new THREE.MeshBasicMaterial({ color: 0xffb43c, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }), 'brain', 0.25);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, BRAIN.y0 + LAYERS * BRAIN.step - 60, 8), beamMat);
+  beam.position.set(BRAIN.x, (60 + BRAIN.y0 + LAYERS * BRAIN.step) / 2, BRAIN.z);
+  brain.add(beam);
+}
+const token = new THREE.Sprite(fade(new THREE.SpriteMaterial({
+  map: dot, color: 0xfff2d0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+}), 'brain'));
+token.scale.set(34, 34, 1); brain.add(token);
+const routeGeo = new THREE.BufferGeometry();
+routeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3));
+const routes = new THREE.LineSegments(routeGeo, fade(new THREE.LineBasicMaterial({ color: 0xffc35a, transparent: true }), 'brain'));
+brain.add(routes);
+function pick(layer, word) {           // the two experts the router "chooses" (illustration)
+  const h = (n) => { n = (n ^ 61) ^ (n >>> 16); n = n + (n << 3); n = n ^ (n >>> 4); n = Math.imul(n, 0x27d4eb2d); return (n ^ (n >>> 15)) >>> 0; };
+  const a = h(layer * 131 + word * 977) % EXPERTS;
+  let b = h(layer * 733 + word * 389 + 1) % (EXPERTS - 1); if (b >= a) b++;
+  return [a, b];
+}
+function expertPos(l, e) {
+  const a = e / EXPERTS * Math.PI * 2 + l * 0.13;
+  return V(BRAIN.x + Math.cos(a) * BRAIN.r, BRAIN.y0 + l * BRAIN.step, BRAIN.z + Math.sin(a) * BRAIN.r);
+}
+
+/* ---------- Training loss (real data from the Spark's train.log, 500-step averages) ---------- */
+const chart = new THREE.Group(); scene.add(chart);
+let lossPts = [], lossLine, lossFill, lossEnd = V();
+const cx = s => CHART.x0 + s / CHART.steps * (CHART.x1 - CHART.x0);
+const cy = l => CHART.y0 + (l - CHART.lo) / (CHART.hi - CHART.lo) * CHART.h;
+async function loadLoss() {
+  const data = await (await fetch('data/loss.json')).json();
+  lossPts = data.map(([s, l]) => V(cx(s), cy(l), CHART.z));
+  const curve = new THREE.CatmullRomCurve3(lossPts);
+  const segs = data.length * 4;
+  lossLine = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, 2.4, 6),
+    fade(new THREE.MeshBasicMaterial({ color: 0xffb43c, transparent: true }), 'chart'));
+  chart.add(lossLine);
+  // fill under the curve
+  const pos = [], col = [], idx = [];
+  const n = 200;
+  for (let i = 0; i <= n; i++) {
+    const p = curve.getPoint(i / n);
+    pos.push(p.x, p.y, p.z, p.x, CHART.y0, p.z);
+    col.push(1, 0.7, 0.24, 0.12, 0.1, 0.1);
+    if (i < n) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  const fg = new THREE.BufferGeometry();
+  fg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  fg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  fg.setIndex(idx);
+  lossFill = new THREE.Mesh(fg, fade(new THREE.MeshBasicMaterial({
+    vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+  }), 'chart', 0.28));
+  chart.add(lossFill);
+  // grid
+  const gl = [];
+  for (const l of [2.0, 2.5, 3.0]) gl.push(CHART.x0, cy(l), CHART.z, CHART.x1, cy(l), CHART.z);
+  gl.push(CHART.x0, CHART.y0, CHART.z, CHART.x1, CHART.y0, CHART.z);
+  const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gl, 3));
+  chart.add(new THREE.LineSegments(gg, fade(new THREE.LineBasicMaterial({ color: 0x8090b0, transparent: true }), 'chart', 0.22)));
+  lossEnd = lossPts[lossPts.length - 1].clone();
+  const endDot = new THREE.Sprite(fade(new THREE.SpriteMaterial({ map: dot, color: 0xffd28a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }), 'chart'));
+  endDot.scale.set(40, 40, 1); endDot.position.copy(lossEnd); chart.add(endDot);
+}
+
+/* ---------- Scroll → chapter position ---------- */
+function scrollPos() {
+  const secs = document.querySelectorAll('#scroll section');
+  const centers = []; let acc = 0;
+  secs.forEach((s, i) => { const h = s.offsetHeight; centers.push(i === 0 ? innerHeight / 2 : acc + h / 2); acc += h; });
+  const y = scrollY + innerHeight / 2;
+  for (let i = 0; i < centers.length - 1; i++) {
+    if (y < centers[i + 1]) return Math.max(0, i + (y - centers[i]) / (centers[i + 1] - centers[i]));
+  }
+  return centers.length - 1;
+}
+function poseAt(p) {
+  const i = Math.max(0, Math.min(CH.length - 1, Math.floor(p)));
+  const j = Math.min(CH.length - 1, i + 1);
+  const f = ease(clamp01((p - i - 0.2) / 0.6));   // hold while the text is read, then fly
+  const a = CH[i], b = CH[j];
+  const mix = (x, y) => x + (y - x) * f;
+  let daz = b.az - a.az; if (daz > 180) daz -= 360; if (daz < -180) daz += 360;
+  const out = {
+    t: a.t.clone().lerp(b.t, f), az: a.az + daz * f, el: mix(a.el, b.el),
+    dist: mix(a.dist, b.dist), x: mix(a.x, b.x), nd: mix(a.nd || 1.85, b.nd || 1.85), focus: (f < 0.5 ? a.focus : b.focus) || [], f,
+  };
+  // long flights pull back a little in the middle so the move reads as a flight
+  const gap = a.t.distanceTo(b.t);
+  out.dist += Math.sin(f * Math.PI) * Math.min(600, gap * 0.45);
+  for (const k of AMOUNTS) out[k] = mix(a[k] || 0, b[k] || 0);
+  return out;
+}
+
+/* ---------- Labels pinned to the scene ---------- */
+const tags = [...document.querySelectorAll('.tag')];
+function partPoint(name, explode) {
+  const p = parts[name]; if (!p) return null;
+  const e = EXPLODE[name] || { d: [0, 0, 0] };
+  return p.base.clone().add(V(...e.d).multiplyScalar(explode)).applyMatrix4(device.matrixWorld);
+}
+const POINTS = {
+  display: s => partPoint('display', s.explode), pi: s => partPoint('pi', s.explode),
+  respeaker: s => partPoint('respeaker', s.explode), speaker: s => partPoint('speaker', s.explode),
+  back_cover: s => partPoint('back_cover', s.explode),
+  v1: () => versionTops.v1, v3: () => versionTops.v3, v4: () => V(0, 136, 0),
+  tap: () => V(0, 106, 30), spark: () => V(SPARK.x, 90, SPARK.z),
+  device: () => V(0, 140, 0),
+  y3: () => V(CHART.x0 - 18, cy(3.0), CHART.z), y25: () => V(CHART.x0 - 18, cy(2.5), CHART.z), y2: () => V(CHART.x0 - 18, cy(2.0), CHART.z),
+  x0: () => V(CHART.x0, CHART.y0 - 26, CHART.z), x29: () => V(cx(29000), CHART.y0 - 26, CHART.z), x58: () => V(cx(58300), CHART.y0 - 26, CHART.z),
+  lossEnd: () => lossEnd.clone().add(V(-10, 60, 0)),
+  brainTop: () => V(BRAIN.x + BRAIN.r + 30, BRAIN.y0 + (LAYERS - 1) * BRAIN.step, BRAIN.z),
+  brainBottom: () => V(BRAIN.x + BRAIN.r + 30, BRAIN.y0, BRAIN.z),
+};
+const SHOW = {   // which labels show in which chapter (rounded chapter index)
+  display: (c, s) => s.explode > 0.8 && (c === 4 || c === 5), pi: (c, s) => s.explode > 0.8 && (c === 4 || c === 6),
+  respeaker: (c, s) => s.explode > 0.8 && (c === 4 || c === 7), speaker: (c, s) => s.explode > 0.8 && (c === 4 || c === 7),
+  back_cover: (c, s) => s.explode > 0.8 && c === 4,
+  v1: (c, s) => s.vers > 0.8, v3: (c, s) => s.vers > 0.8, v4: (c, s) => s.vers > 0.8,
+  tap: (c, s) => s.tip > 0.8, spark: c => c === 8 || (c === 9 && !narrow()), device: c => c === 8,
+  y3: (c, s) => s.chart > 0.8, y25: (c, s) => s.chart > 0.8, y2: (c, s) => s.chart > 0.8,
+  x0: (c, s) => s.chart > 0.8, x29: (c, s) => s.chart > 0.8, x58: (c, s) => s.chart > 0.8, lossEnd: (c, s) => s.chart > 0.95,
+  brainTop: (c, s) => s.brain > 0.9 && c === 9, brainBottom: (c, s) => s.brain > 0.9 && c === 9,
+};
+
+/* ---------- Chapter rail ---------- */
+const rail = document.getElementById('rail');
+const panels = [...document.querySelectorAll('.panel')];
+function scrollToChapter(i) {
+  const secs = document.querySelectorAll('#scroll section'); let top = 0;
+  for (let k = 0; k < i; k++) top += secs[k].offsetHeight;
+  scrollTo({ top: i === 0 ? 0 : top + secs[i].offsetHeight / 2 - innerHeight / 2, behavior: still ? 'auto' : 'smooth' });
+}
+CH.forEach((c, i) => {
+  const b = document.createElement('button');
+  b.innerHTML = `<span>${c.name}</span><i></i>`; b.setAttribute('aria-label', c.name);
+  b.onclick = () => scrollToChapter(i);
+  rail.appendChild(b);
+});
+
+/* ---------- Frame ---------- */
+const cur = { az: CH[0].az, el: CH[0].el, dist: CH[0].dist, x: CH[0].x, nd: 1.85 };
+for (const k of AMOUNTS) cur[k] = 0;
+const curT = DEV.clone();
+let ready = false;
+const clock = new THREE.Clock();
+
+let simTime = 0;
+function tick(fixedDt) {
+  if (!ready) return;
+  const dt = fixedDt ?? Math.min(0.05, clock.getDelta());
+  simTime += dt; const t = simTime;
+  const p = scrollPos(), goal = poseAt(p), c = Math.round(p);
+  const k = 1 - Math.pow(0.0006, dt);   // smoothing, frame-rate independent
+  for (const key of ['el', 'dist', 'x', 'nd', ...AMOUNTS]) cur[key] += (goal[key] - cur[key]) * k;
+  let daz = goal.az - cur.az; if (daz > 180) daz -= 360; if (daz < -180) daz += 360;
+  cur.az += daz * k;
+  const focus = goal.focus;
+
+  // device: explode, ghost, focus dimming
+  const ex = ease(clamp01(cur.explode));
+  const lift = ex * 70;
+  for (const [name, p] of Object.entries(parts)) {
+    const e = EXPLODE[name] || { d: [0, 0, 0] };
+    for (const mesh of p.group.children) {
+      mesh.position.set(e.d[0] + (e.side || 0) * (mesh.userData.sign || 0), e.d[1], e.d[2]).multiplyScalar(ex);
+      if (mesh.userData.home) mesh.position.add(mesh.userData.home);
+    }
+    let op = 1;
+    if (name === 'shell') op = 1 - cur.ghost * 0.86;
+    const near = focus.includes(name) ||
+      (focus.includes('respeaker') && ['button_caps', 'speaker_clamp'].includes(name)) ||
+      (focus.includes('display') && name === 'display_clamps');
+    if (focus.length && !near) op = Math.min(op, name === 'shell' ? 0.05 : 0.14);
+    for (const m of p.mats) {
+      m.userData.op = (m.userData.op ?? 1) + (op - (m.userData.op ?? 1)) * k;
+      m.opacity = m.userData.op; m.depthWrite = m.userData.op > 0.95;
+    }
+  }
+  pivot.position.y = lift;
+  // tipping test: rock back on the back edge, then settle
+  const rock = still ? 0.5 : Math.max(0, Math.sin(t * 1.6));
+  pivot.rotation.x = -cur.tip * rock * THREE.MathUtils.degToRad(7);
+  tapArrow.position.z = 32 - rock * 7;
+
+  // fades for the other scenes
+  for (const f of fadeable) {
+    const v = cur[f.group] ?? 1;
+    f.mat.opacity = f.base * clamp01(v);
+    f.mat.visible = v > 0.01;
+    f.mat.depthWrite = v > 0.95 && f.base === 1;
+  }
+
+  // packets along the link
+  packets.forEach(m => {
+    const s = ((t * 0.32 + m.userData.off) % 1);
+    m.position.copy(linkCurve.getPoint(m.userData.up ? s : 1 - s));
+    const pulse = Math.sin(s * Math.PI);
+    m.scale.setScalar(10 + pulse * 10);
+  });
+
+  // a word rising through the layers, lighting its 2 experts in each
+  if (cur.brain > 0.01) {
+    const cycle = t / 3.2, word = Math.floor(cycle), u = cycle - word;
+    const ly = u * (LAYERS + 2) - 1;
+    token.position.set(BRAIN.x, BRAIN.y0 + ly * BRAIN.step, BRAIN.z);
+    const L = Math.floor(ly + 0.5);
+    for (let i = 0; i < heat.length; i++) heat[i] *= Math.pow(0.08, dt);
+    const rp = routes.geometry.attributes.position;
+    if (L >= 0 && L < LAYERS) {
+      const [a, b] = pick(L, word);
+      heat[L * EXPERTS + a] = 1; heat[L * EXPERTS + b] = 1;
+      const pa = expertPos(L, a), pb = expertPos(L, b);
+      rp.setXYZ(0, token.position.x, token.position.y, token.position.z); rp.setXYZ(1, pa.x, pa.y, pa.z);
+      rp.setXYZ(2, token.position.x, token.position.y, token.position.z); rp.setXYZ(3, pb.x, pb.y, pb.z);
+      rp.needsUpdate = true;
+    }
+    for (let i = 0; i < heat.length; i++) experts.setColorAt(i, tmpC.copy(DIM).lerp(HOT, heat[i]));
+    experts.instanceColor.needsUpdate = true;
+  }
+
+  // loss curve draws itself in
+  if (lossLine) {
+    const d = ease(clamp01(cur.chart * 1.15 - 0.1));
+    lossLine.geometry.setDrawRange(0, Math.floor(lossLine.geometry.index.count * d / 6) * 6);
+    lossFill.geometry.setDrawRange(0, Math.floor(lossFill.geometry.index.count * d / 6) * 6);
+  }
+
+  // dust drifts
+  if (!still) {
+    const a = dust.geometry.attributes.position;
+    for (let i = 0; i < DUST; i++) {
+      let y = a.getY(i) + dt * (6 + (i % 7));
+      if (y > 1000) y = 0;
+      a.setY(i, y); a.setX(i, a.getX(i) + Math.sin(t * 0.3 + i) * dt * 3);
+    }
+    a.needsUpdate = true;
+  }
+
+  // camera
+  const mid = goal.t.clone();
+  mid.y += lift * clamp01(1 - goal.t.distanceTo(DEV) / 200);   // follow the device up when it comes apart
+  if (focus.length) {
+    const fp = focus.map(n => partPoint(n, ex)).filter(Boolean);
+    if (fp.length) mid.lerp(fp.reduce((s, v) => s.add(v), V()).multiplyScalar(1 / fp.length), 0.7);
+  }
+  curT.lerp(mid, k);
+  const az = THREE.MathUtils.degToRad(cur.az + (still ? 0 : Math.sin(t * 0.3) * 2));
+  const el = THREE.MathUtils.degToRad(cur.el);
+  const dist = cur.dist * (narrow() ? cur.nd : 1);
+  camera.position.set(curT.x + dist * Math.cos(el) * Math.sin(az), curT.y + dist * Math.sin(el), curT.z + dist * Math.cos(el) * Math.cos(az));
+  camera.position.y = Math.max(12, camera.position.y);
+  camera.lookAt(curT);
+  const W = innerWidth, H = innerHeight;
+  if (narrow()) camera.setViewOffset(W, H, 0, H * 0.17, W, H);
+  else camera.setViewOffset(W, H, -W * cur.x, 0, W, H);
+  sky.position.copy(camera.position);
+  sunRays.position.copy(camera.position).addScaledVector(SUN_DIR, 15000);
+  sunRays.material.rotation = t * 0.02;
+  key.target.position.set(curT.x, 0, curT.z); key.position.set(curT.x - 300, 520, curT.z + 420);
+
+  renderer.render(scene, camera);
+
+  // text panels
+  panels.forEach((el, i) => {
+    const d = p - i, o = Math.max(0, 1 - Math.abs(d) * 2.4);
+    el.style.opacity = o.toFixed(3);
+    el.style.setProperty('--shift', (-d * 40).toFixed(1) + 'px');
+    el.classList.toggle('on', o > 0.01);
+  });
+  [...rail.children].forEach((b, i) => b.classList.toggle('on', c === i));
+
+  // labels
+  const st = { explode: ex, vers: cur.vers, tip: cur.tip, chart: cur.chart, brain: cur.brain };
+  device.updateMatrixWorld();
+  for (const el of tags) {
+    const at = el.dataset.at, pt = POINTS[at] && POINTS[at](st);
+    if (!pt) { el.style.opacity = 0; continue; }
+    const v = pt.clone().project(camera);
+    const x = (v.x * 0.5 + 0.5) * W, y = (-v.y * 0.5 + 0.5) * H;
+    const pin = el.classList.contains('pin'), axis = el.classList.contains('axis');
+    const ox = at === 'lossEnd' ? -el.offsetWidth - 12 : pin ? 70 : axis ? (at.startsWith('y') ? -el.offsetWidth : -el.offsetWidth / 2) : -el.offsetWidth / 2;
+    const oy = pin ? -16 : axis ? -6 : -el.offsetHeight;
+    el.style.transform = `translate(${(x + ox).toFixed(0)}px, ${(y + oy).toFixed(0)}px)`;
+    const on = SHOW[at] && SHOW[at](c, st) && v.z < 1 && x > 0 && x < W && y > 0 && y < H;
+    el.style.opacity = on ? 1 : 0;
+  }
+}
+function frame() { requestAnimationFrame(frame); tick(); }
+window.helios = { tick, camera, cur };   // for debugging in the console
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+Promise.all([loadDevice(), loadVersions(), loadLoss()]).then(() => {
+  ready = true;
+  document.getElementById('loader').classList.add('done');
+}).catch(err => {
+  document.getElementById('loadtext').textContent = 'Could not load the models. Serve this folder over http.';
+  console.error(err);
+});
+frame();
+</script>
+<a href="../" style="position:fixed;z-index:99;left:max(14px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));font:500 13px Inter,system-ui,sans-serif;color:#e9e4da;background:rgba(11,14,20,.72);border:1px solid #323b4f;border-radius:99px;padding:8px 14px;text-decoration:none;backdrop-filter:blur(8px)">&larr; Portfolio</a>

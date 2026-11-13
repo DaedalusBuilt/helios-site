@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Research · Helios</title>
+<meta name="description" content="The research behind Helios: model design, training speed, live search, benchmarks, acoustics, tipping and risk planning.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .split { display: grid; gap: clamp(22px, 4vw, 44px); grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .split.flip > :first-child { order: 2; }
+  .num-h { font: 600 0.8rem var(--mono); color: var(--gold); }
+  .ladder { display: grid; gap: 8px; }
+  .rung { display: grid; grid-template-columns: 58px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+  .rung b { font: 600 1.05rem var(--head); color: var(--gold2); }
+  .rung span { color: var(--muted); font-size: 0.9rem; }
+  .rung span.s { color: var(--dim); font-size: 0.84rem; }
+  .gates { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
+  .gates .card b { font: 600 0.82rem var(--mono); color: var(--gold2); }
+  td.hi { color: var(--gold2); font-weight: 600; }
+  @media (max-width: 860px) { .split { grid-template-columns: 1fr; } .split.flip > :first-child { order: 0; } .rung { grid-template-columns: 44px 1fr; } .rung span.s { grid-column: 2; } }
+</style>
+</head>
+<body data-page="research">
+<main>
+
+<section class="pagehead">
+  <div class="glow"></div>
+  <div class="wrap">
+    <div class="eyebrow">Research</div>
+    <h1>The questions behind every decision.</h1>
+    <p class="lede">Before building each part I researched how others do it, then measured my own version. Six areas: the model's design, making training faster, grounding answers in live facts, testing what it learned, the physics of the case, and planning for failure.</p>
+    <nav class="toc" aria-label="On this page">
+      <a href="#model">1 · Model design</a><a href="#speed">2 · Training speed</a><a href="#search">3 · Live search</a>
+      <a href="#bench">4 · Benchmarks</a><a href="#case">5 · Case physics</a><a href="#risk">6 · Risk plan</a>
+    </nav>
+  </div>
+</section>
+
+<section class="block" id="model">
+  <div class="wrap split">
+    <div class="sechead">
+      <span class="num-h">01 · MODEL DESIGN</span>
+      <h2>Borrowing ideas, not weights</h2>
+      <div class="prose" style="margin-top:4px">
+        <p>I studied how today's open models are built (nanoGPT, Llama and Mixtral) and the research parts they share, then wrote every piece myself.</p>
+        <ul>
+          <li><strong>Mixture-of-experts</strong> (Mixtral): 12 experts per layer, 2 used per word, so 8.28 B parameters cost about what 1.68 B would to train.</li>
+          <li><strong>RoPE</strong>: tells the model word order by rotating vectors; it stretches to longer text gracefully.</li>
+          <li><strong>Grouped-query attention</strong>: 16 query heads share 4 key/value heads, which shrinks memory with little quality loss.</li>
+          <li><strong>RMSNorm and SwiGLU</strong>: a lighter normalization and a better activation, both standard in Llama.</li>
+          <li><strong>Scaling rules</strong>: training costs about 6 × parameters × tokens, and a fully trained model sees about 20 tokens per parameter. That math is why I chose 8 B over 12 B.</li>
+        </ul>
+      </div>
+    </div>
+    <figure><img class="zoom" src="img/r/helios_architecture.jpg" alt="Helios architecture diagram"><figcaption>The architecture: 24 blocks, each with attention and a 12-expert layer.</figcaption></figure>
+  </div>
+</section>
+
+<section class="block" id="speed">
+  <div class="wrap split flip">
+    <div class="sechead">
+      <span class="num-h">02 · TRAINING SPEED</span>
+      <h2>1.68× faster, measured, before the long run</h2>
+      <div class="prose" style="margin-top:4px">
+        <p>A run measured in months makes every percent count. Before launching, I tried 13 speed techniques on the real model and the real data, measured each one, and kept 5.</p>
+        <p>Training went from <strong>9.57 to 5.70 seconds per step</strong>: 1,712 to 2,874 tokens a second. Over 66 days, that difference is the reason the run finished in time at all.</p>
+      </div>
+      <div class="stats" style="margin-top:8px">
+        <div class="stat"><b>13</b><span>techniques tried</span></div>
+        <div class="stat"><b>5</b><span>kept</span></div>
+        <div class="stat"><b>2,874</b><span>tokens a second</span></div>
+      </div>
+    </div>
+    <figure><img class="zoom" src="img/r/moe_optimization.jpg" alt="Training speed optimization chart"><figcaption>Each kept technique and what it added.</figcaption></figure>
+  </div>
+</section>
+
+<section class="block" id="search">
+  <div class="wrap split">
+    <div class="sechead">
+      <span class="num-h">03 · LIVE SEARCH</span>
+      <h2>Look it up, don't make it up</h2>
+      <div class="prose" style="margin-top:4px">
+        <p>A model this size can't hold reliable facts in memory, and asking it to guess produces confident wrong answers. So Helios looks things up first: live weather, Wikipedia and news, ranked with <strong>BM25</strong>, the classic search-engine scoring that weighs rare words more and treats long and short pages fairly.</p>
+        <ul>
+          <li>Six modules and a 60-test suite; all 15 acceptance checks pass, including live tests against the National Weather Service, Wikipedia and NPR</li>
+          <li>Building against the real web found a contradiction in my own spec: strictly following robots.txt would have refused two of the three sources</li>
+          <li>It also caught a confident wrong answer in offline mode, now pinned by a test</li>
+          <li>Lookups take 0.15 to 0.6 seconds live and about 1 ms from cache, well inside the 3 to 5 second budget for a full answer</li>
+        </ul>
+        <p>The result changes what can go wrong: instead of the model inventing facts, mistakes come from search, which is repeatable and fixable before the presentation.</p>
+      </div>
+    </div>
+    <figure><img class="zoom" src="img/r/bm25_ranking.jpg" alt="BM25 ranking example"><figcaption>How BM25 picks the passage that answers the question.</figcaption></figure>
+  </div>
+</section>
+
+<section class="block" id="bench">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="num-h">04 · BENCHMARKS</span>
+      <h2>How Helios compares to models of its size</h2>
+      <p>After pre-training (Oct 24), I scored Helios against GPT-2 XL (OpenAI, 1.5 B) and Pythia-1.4B (EleutherAI), using the same questions and scoring for all three. Scores are out of 100; higher is better.</p>
+    </div>
+    <div class="tablewrap"><table>
+      <tr><th>Test</th><th>What it checks</th><th class="num">Helios</th><th class="num">GPT-2 XL</th><th class="num">Pythia-1.4B</th></tr>
+      <tr><td>ARC-Easy</td><td>Grade-school science</td><td class="num hi">64.9</td><td class="num">51.7</td><td class="num">54.7</td></tr>
+      <tr><td>ARC-Challenge</td><td>Harder science</td><td class="num hi">37.0</td><td class="num">28.4</td><td class="num">28.8</td></tr>
+      <tr><td>My fact questions (30)</td><td>Fill in a fact</td><td class="num hi">80.0</td><td class="num">73.3</td><td class="num">66.7</td></tr>
+      <tr><td>My multiple choice (38)</td><td>Knowledge, language, math, code</td><td class="num hi">92.1</td><td class="num">84.2</td><td class="num">86.8</td></tr>
+      <tr><td>HellaSwag</td><td>Everyday situations</td><td class="num">45.9</td><td class="num">50.9</td><td class="num hi">52.1</td></tr>
+      <tr><td>LAMBADA</td><td>Finishing a story's last word</td><td class="num">35.8</td><td class="num">50.8</td><td class="num hi">60.8</td></tr>
+    </table></div>
+    <div class="split">
+      <div class="prose">
+        <p><strong>Helios wins on science and facts, and trails on stories and everyday scenes.</strong> That matches what it read: mostly educational web pages (FineWeb-Edu) and no books.</p>
+        <p>To make sure the science scores weren't memorized, I searched the training data for copies of the test questions. I also mapped what each of the 288 experts (24 layers × 12) specializes in, like Python code, science, fiction, and names of places, and tested them by switching single experts off.</p>
+        <p>After fine-tuning in November, the scores stayed within about a point, and patch 1 raised all three standard ones slightly (ARC-Easy 65.6, ARC-Challenge 39.3, HellaSwag 46.5).</p>
+      </div>
+      <figure><img class="zoom" src="img/r/helios_experts.jpg" alt="Map of what Helios's experts specialize in"><figcaption>What the experts in each layer specialize in.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="case">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="num-h">05 · CASE PHYSICS</span>
+      <h2>Acoustics, tipping, and ten looks</h2>
+      <p>The case went through several versions (v1 printed Oct 26, then v3, v4 and later). Each change came from a model or a test, not a guess.</p>
+    </div>
+    <div class="split">
+      <div class="prose">
+        <h3>A horn, not a box</h3>
+        <p>An acoustic model of the first speaker duct showed a dead-end pocket causing a <strong>13.5 dB dip near 7 kHz</strong>, right where speech gets its clarity. I researched horn loudspeakers (flare shape, mouth size) and redesigned the chin as a short horn that widens the whole way, from 364 mm² at the throat to 1,430 mm² at the grille, with 45° walls so it prints without supports. Modelled result: about 6 dB louder across speech, with no deep dips.</p>
+        <p>For the screws, I used brass heat-set inserts sized from CNC Kitchen's published tests, and redid the heat estimate with published Raspberry Pi data, which showed a heatsink is required.</p>
+      </div>
+      <figure><img class="zoom" src="img/r/horn_acoustics.jpg" alt="Modelled sound output of the old duct and the new horn"><figcaption>Modelled response: old duct vs. the horn.</figcaption></figure>
+    </div>
+    <div class="split flip">
+      <div class="prose">
+        <h3>Depth instead of weights</h3>
+        <p>The target: the case must survive a firm 1.5 N tap at the top of the screen. The first fix was 40 g of tungsten putty in the front corners. A tipping model showed a better answer: make the base deeper. A deeper top moves the back feet back and widens the stance.</p>
+        <div class="tablewrap"><table>
+          <tr><th>Top depth</th><th class="num">No putty</th><th class="num">With 40 g putty</th></tr>
+          <tr><td>48 mm</td><td class="num">1.55 N</td><td class="num">1.83 N</td></tr>
+          <tr><td>52 mm</td><td class="num">1.71 N</td><td class="num">2.02 N</td></tr>
+          <tr><td class="hi">56 mm (chosen)</td><td class="num hi">1.89 N</td><td class="num">2.22 N</td></tr>
+          <tr><td>60 mm</td><td class="num">2.07 N</td><td class="num">2.43 N</td></tr>
+        </table></div>
+        <p>56 mm with no putty matched the old margins, dropped one part and one assembly step, and made the case 31 g lighter.</p>
+      </div>
+      <figure><img class="zoom" src="img/r/depth_48_vs_56.jpg" alt="The case at 48 and 56 mm deep"><figcaption>48 mm vs. 56 mm deep.</figcaption></figure>
+    </div>
+    <div class="grid two">
+      <figure><img class="zoom" src="img/r/echo_look_proposal.jpg" alt="Design cues borrowed from smart displays"><figcaption>Looking at how smart displays are shaped: rounder corners and a screen that leans back.</figcaption></figure>
+      <figure><img class="zoom" src="img/r/v3_ten_designs.jpg" alt="Ten design options for case v3"><figcaption>Ten looks for v3, compared side by side before choosing.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="risk">
+  <div class="wrap">
+    <div class="sechead">
+      <span class="num-h">06 · RISK PLAN · SEP 16</span>
+      <h2>You never lose. You step down.</h2>
+      <p>A plan written in advance so that any failure triggers a decision that's already made. There is a ladder of demo versions, best at the top, with a guaranteed floor at the bottom.</p>
+    </div>
+    <div class="ladder">
+      <div class="rung"><b>Tier 0</b><span>8 B Helios, the device, live web search</span><span class="s">Everything working</span></div>
+      <div class="rung"><b>Tier 1</b><span>8 B Helios, the device, search from cache</span><span class="s">Survives a bad venue network</span></div>
+      <div class="rung"><b>Tier 2</b><span>8 B Helios on a laptop, no device</span><span class="s">Survives a hardware failure</span></div>
+      <div class="rung"><b>Tier 3</b><span>The small seed model in place of the 8 B</span><span class="s">Survives a failed training run</span></div>
+      <div class="rung"><b>Tier 4</b><span>Recorded video, the story, loss curves and diagrams</span><span class="s">Needs nothing to work on the day</span></div>
+    </div>
+    <div class="gates">
+      <div class="card"><b>Gate A · Oct 19</b><h4>The model</h4><p>Did the run finish healthy? <span style="color:var(--green)">Yes, Oct 23.</span></p></div>
+      <div class="card"><b>Gate B · Nov 6</b><h4>The software</h4><p>Does it answer, and serve from a laptop? <span style="color:var(--green)">Yes: Tier 2 locked.</span></p></div>
+      <div class="card"><b>Gate C · Nov 20</b><h4>The hardware</h4><p>Does the device run the full loop end to end?</p></div>
+      <div class="card"><b>Gate D · Nov 30</b><h4>The network</h4><p>Does live search work on a travel router?</p></div>
+      <div class="card"><b>Gate E · Dec 4</b><h4>Freeze</h4><p>Whatever works today is the demo.</p></div>
+    </div>
+  </div>
+</section>
+
+</main>
+<script src="site.js"></script>
+</body>
+</html>

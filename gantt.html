@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gantt Chart · Helios</title>
+<meta name="description" content="The Helios capstone Gantt chart: seven two-week sprints from Aug 31 to Dec 11, 2026.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .legend { display: flex; flex-wrap: wrap; gap: 18px; font-size: 0.86rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .sw { width: 22px; height: 10px; border-radius: 3px; display: inline-block; }
+  .sw.done { background: var(--gold); }
+  .sw.part { border: 1px solid var(--gold); background: linear-gradient(90deg, rgba(245,166,35,.55) 50%, transparent 50%); }
+  .sw.todo { border: 1px solid var(--line2); background: var(--card2); }
+  .sw.lms { width: 10px; height: 10px; transform: rotate(45deg); background: var(--gold2); border-radius: 2px; }
+  .sw.lnow { width: 2px; height: 16px; background: var(--sky); border-radius: 0; }
+
+  .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--card); }
+  .gantt { --name: 330px; --wk: 64px; display: grid; grid-template-columns: var(--name) calc(var(--wk) * var(--weeks)); min-width: max-content; font-size: 0.86rem; }
+  .gantt .h { position: sticky; top: 0; z-index: 3; background: var(--bg2); border-bottom: 1px solid var(--line); }
+  .gantt .nm { position: sticky; left: 0; z-index: 2; background: var(--card); border-right: 1px solid var(--line); padding: 7px 14px; display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+  .gantt .nm .id { font: 500 0.72rem var(--mono); color: var(--dim); width: 34px; flex: none; }
+  .gantt .nm .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d9d4ca; }
+  .gantt .nm.grp { background: var(--bg2); color: var(--gold2); font: 600 0.82rem var(--head); letter-spacing: 0.02em; padding-top: 14px; }
+  .gantt .h.nm { z-index: 4; color: var(--dim); font: 500 0.7rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; align-items: end; }
+  .lane { position: relative; border-bottom: 1px solid rgba(36, 43, 58, 0.55); min-height: 32px;
+    background-image: repeating-linear-gradient(90deg, transparent 0 calc(var(--wk) - 1px), rgba(50, 59, 79, 0.45) calc(var(--wk) - 1px) var(--wk)); }
+  .lane.grp { background-color: var(--bg2); }
+  .bar { position: absolute; top: 9px; height: 14px; border-radius: 4px; border: 1px solid var(--line2); background: var(--card2); overflow: hidden; min-width: 6px; }
+  .bar.done { background: var(--gold); border-color: var(--gold2); }
+  .bar.part { border-color: var(--gold); }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; background: rgba(245, 166, 35, 0.55); }
+  .ms { position: absolute; top: 9px; width: 13px; height: 13px; transform: translateX(-50%) rotate(45deg); border-radius: 2px; background: var(--card2); border: 1px solid var(--gold); }
+  .ms.done { background: var(--gold2); }
+  .scale { display: grid; grid-template-columns: repeat(var(--weeks), var(--wk)); }
+  .scale div { padding: 6px 0 6px 6px; border-left: 1px solid var(--line); color: var(--muted); font: 500 0.7rem var(--mono); white-space: nowrap; overflow: hidden; }
+  .sprints { display: grid; grid-template-columns: repeat(var(--weeks), var(--wk)); border-bottom: 1px solid var(--line); }
+  .sprints div { padding: 8px 8px 6px; color: var(--gold2); font: 600 0.74rem var(--head); border-left: 1px solid var(--line2); white-space: nowrap; }
+  .sprints div.off { color: var(--dim); font-weight: 500; }
+  .nowline { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--sky); z-index: 1; pointer-events: none; opacity: 0.85; }
+  .nowtag { position: absolute; top: 4px; transform: translateX(-50%); font: 500 0.66rem var(--mono); color: #0b0e14; background: var(--sky); padding: 1px 6px; border-radius: 4px; z-index: 2; white-space: nowrap; }
+  .tip { position: fixed; z-index: 60; pointer-events: none; background: #070a10; border: 1px solid var(--line2); border-radius: 10px; padding: 10px 12px; font-size: 0.84rem; max-width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,.5); display: grid; gap: 3px; }
+  .tip b { color: #fff; font-weight: 600; }
+  .tip span { color: var(--muted); font: 500 0.74rem var(--mono); }
+  .checks { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+  .checks ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .checks li { display: flex; gap: 10px; font-size: 0.93rem; color: #d6d2c9; }
+  .checks li::before { content: "✓"; color: var(--green); font-weight: 700; }
+  .checks li.todo::before { content: "○"; color: var(--dim); }
+  .checks li.subh { color: var(--dim); font: 500 0.7rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 6px; }
+  .checks li.subh::before { content: none; }
+  @media (max-width: 720px) { .gantt { --name: 190px; --wk: 52px; } }
+</style>
+</head>
+<body data-page="gantt">
+<main>
+
+<section class="pagehead">
+  <div class="glow"></div>
+  <div class="wrap">
+    <div class="eyebrow">Gantt chart · updated Nov 9, 2026</div>
+    <h1>Fourteen weeks, seven sprints, one deadline.</h1>
+    <p class="lede">The schedule I'm graded against, from Aug 31 to Dec 11. Training ran by itself from Aug 18 to Oct 23, so the semester went to everything around it: search, the device, the case and teaching Helios to answer.</p>
+  </div>
+</section>
+
+<section class="block" style="border-top:0;padding-top:0">
+  <div class="wrap">
+    <div class="stats" id="stats"></div>
+    <div class="legend">
+      <span><i class="sw done"></i>Done</span>
+      <span><i class="sw part"></i>Partly done (fill shows how much)</span>
+      <span><i class="sw todo"></i>Not started</span>
+      <span><i class="sw lms"></i>One-day milestone</span>
+      <span><i class="sw lnow"></i>Today</span>
+    </div>
+    <div class="gwrap"><div class="gantt" id="gantt"></div></div>
+    <p style="color:var(--dim);font-size:0.86rem">Hover or tap a bar for its dates. On a phone, swipe the chart sideways. Tasks finished before Aug 31 (the model design and tokenizer, done in August) are pinned to the first day.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">Checklists</div>
+      <h2>Hardware and web calling, step by step</h2>
+      <p>These two sections of the sheet are tracked as checklists rather than dated bars.</p>
+    </div>
+    <div class="checks" id="checks"></div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">Hard dates</div>
+      <h2>The dates that don't move</h2>
+    </div>
+    <div class="tablewrap"><table>
+      <tr><th>Date</th><th>What</th></tr>
+      <tr><td>Sep 25</td><td>★ Formal Project Review #1</td></tr>
+      <tr><td>Oct 23</td><td>8 B pre-training finished (planned ~Oct 19)</td></tr>
+      <tr><td>Nov 6</td><td>★ Formal Project Review #2</td></tr>
+      <tr><td>Dec 4</td><td>Code freeze: no changes after this</td></tr>
+      <tr><td>Dec 8</td><td>★ Formal Project Presentation #3, the binding deadline</td></tr>
+      <tr><td>Dec 10</td><td>Innovation and Technology Showcase</td></tr>
+      <tr><td>Dec 11</td><td>Semester wrap</td></tr>
+    </table></div>
+  </div>
+</section>
+
+</main>
+<div class="tip" id="tip" hidden></div>
+<script src="gantt-data.js"></script>
+<script>
+(() => {
+  const DAY = 864e5;
+  const t0 = Date.UTC(2026, 7, 31);              // Mon Aug 31
+  const WEEKS = 15;                              // through Fri Dec 11
+  const t1 = t0 + WEEKS * 7 * DAY;
+  const parse = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+  const pctX = t => Math.max(0, Math.min(1, (t - t0) / (t1 - t0))) * 100;
+  const fmt = t => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const g = document.getElementById('gantt');
+  g.style.setProperty('--weeks', WEEKS);
+  const SPRINTS = [[0, 2, 'Sprint 1'], [2, 2, 'Sprint 2'], [4, 2, 'Sprint 3'], [6, 2, 'Sprint 4'], [8, 2, 'Sprint 5'], [10, 2, 'Sprint 6'], [12, 1, 'Break', 1], [13, 2, 'Sprint 7']];
+  let html = `<div class="h nm">Task</div><div class="h">
+    <div class="sprints">${SPRINTS.map(([s, n, t, off]) => `<div class="${off ? 'off' : ''}" style="grid-column:${s + 1} / span ${n}">${t}</div>`).join('')}</div>
+    <div class="scale">${Array.from({ length: WEEKS }, (_, i) => `<div>${fmt(t0 + i * 7 * DAY)}</div>`).join('')}</div></div>`;
+
+  let total = 0, done = 0, part = 0, ms = 0;
+  const checks = [];
+  for (const grp of GANTT.groups) {
+    const dated = grp.tasks.filter(t => t.start && t.end);
+    if (!dated.length) { checks.push(grp); continue; }
+    html += `<div class="nm grp">${esc(grp.name)}</div><div class="lane grp"></div>`;
+    for (const t of grp.tasks) {
+      if (!t.start || !t.end) continue;
+      const s = parse(t.start), e = parse(t.end) + DAY;
+      if (e < t0) continue;                       // the 2025 application row
+      total++;
+      const p = t.pct ?? 0;
+      const st = p >= 100 ? 'done' : p > 0 ? 'part' : 'todo';
+      if (st === 'done') done++; else if (st === 'part') part++;
+      const tipd = `data-tip="${esc(t.name)}|${fmt(s)}${t.start !== t.end ? ' – ' + fmt(e - DAY) : ''}|${t.pct == null ? 'in progress' : p + '% done'}"`;
+      let mark;
+      if (t.start === t.end) {
+        ms++;
+        mark = `<i class="ms ${st === 'done' ? 'done' : ''}" style="left:${pctX(s + DAY / 2)}%" ${tipd}></i>`;
+      } else {
+        const l = pctX(s), w = pctX(e) - l;
+        mark = `<i class="bar ${st}" style="left:${l}%;width:${w}%" ${tipd}>${st === 'part' ? `<i class="fill" style="width:${p}%"></i>` : ''}</i>`;
+      }
+      html += `<div class="nm"><span class="id">${esc(t.id)}</span><span class="t" title="${esc(t.name)}">${esc(t.name)}</span></div><div class="lane">${mark}</div>`;
+    }
+  }
+  g.innerHTML = html;
+
+  // today line
+  const now = Date.now();
+  if (now > t0 && now < t1) {
+    const x = pctX(now);
+    const col = g.children[1];
+    const lanes = g.querySelectorAll('.lane');
+    for (const ln of lanes) { const i = document.createElement('i'); i.className = 'nowline'; i.style.left = x + '%'; ln.append(i); }
+    const tag = document.createElement('span'); tag.className = 'nowtag'; tag.style.left = x + '%'; tag.textContent = 'Today';
+    col.style.position = 'sticky'; col.querySelector('.scale').style.position = 'relative'; col.querySelector('.scale').append(tag);
+  }
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><b>${total}</b><span>dated tasks and milestones</span></div>
+    <div class="stat"><b>${done}</b><span>done</span></div>
+    <div class="stat"><b>${part}</b><span>partly done</span></div>
+    <div class="stat"><b>${total - done - part}</b><span>still ahead, most of them in Sprints 6 and 7</span></div>`;
+
+  document.getElementById('checks').innerHTML = checks.map(grp => `<div class="card"><h3>${esc(grp.name)}</h3><ul>${
+    grp.tasks.map(t => t.sub ? `<li class="subh">${esc(t.sub)}</li>` : `<li class="${(t.pct ?? 0) >= 100 ? '' : 'todo'}">${esc(t.name)}${t.start ? ` <span style="color:var(--dim)">(${fmt(parse(t.start))})</span>` : ''}</li>`).join('')
+  }</ul></div>`).join('');
+
+  // tooltips
+  const tip = document.getElementById('tip');
+  const show = (el, x, y) => {
+    const [n, d, p] = el.dataset.tip.split('|');
+    tip.innerHTML = `<b>${n}</b><span>${d}</span><span>${p}</span>`;
+    tip.hidden = false;
+    const r = tip.getBoundingClientRect();
+    tip.style.left = Math.min(innerWidth - r.width - 12, Math.max(12, x + 14)) + 'px';
+    tip.style.top = Math.min(innerHeight - r.height - 12, y + 14) + 'px';
+  };
+  g.addEventListener('pointermove', e => { const el = e.target.closest('[data-tip]'); el ? show(el, e.clientX, e.clientY) : (tip.hidden = true); });
+  g.addEventListener('pointerleave', () => tip.hidden = true);
+  g.addEventListener('click', e => { const el = e.target.closest('[data-tip]'); if (el) show(el, e.clientX, e.clientY); });
+  addEventListener('scroll', () => tip.hidden = true, { passive: true });
+})();
+</script>
+<script src="site.js"></script>
+</body>
+</html>

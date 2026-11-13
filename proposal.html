@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Proposal · Helios</title>
+<meta name="description" content="The Helios project proposal: an 8B mixture-of-experts language model trained from scratch on one DGX Spark, and the voice device it drives.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .goal { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); align-items: start; }
+  .tl { display: grid; gap: 0; border-left: 2px solid var(--line2); margin-left: 6px; }
+  .tl div { position: relative; padding: 0 0 20px 24px; display: grid; gap: 4px; }
+  .tl div::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); border: 2px solid var(--gold); }
+  .tl b { font: 500 0.78rem var(--mono); color: var(--gold2); letter-spacing: 0.06em; }
+  .tl p { color: var(--muted); font-size: 0.95rem; }
+  .moe { display: grid; gap: 14px; grid-template-columns: repeat(12, 1fr); }
+  .moe i { aspect-ratio: 1; border-radius: 6px; background: var(--card2); border: 1px solid var(--line2); }
+  .moe i.on { background: var(--gold); border-color: var(--gold2); box-shadow: 0 0 14px rgba(245, 166, 35, 0.5); }
+  @media (max-width: 860px) { .goal { grid-template-columns: 1fr; } .moe { gap: 6px; } }
+</style>
+</head>
+<body data-page="proposal">
+<main>
+
+<section class="pagehead">
+  <div class="glow"></div>
+  <div class="wrap">
+    <div class="eyebrow">Project proposal · Design spec v1 (Aug 3, 2026) and its device addendum</div>
+    <h1>An 8-billion-parameter model, built from an empty page.</h1>
+    <p class="lede">The plan I wrote before the capstone started: train a language model entirely from scratch on one computer I own, then put it inside a device people can talk to. No borrowed model, no cloud, no paid services.</p>
+    <nav class="toc" aria-label="On this page">
+      <a href="#goal">The goal</a><a href="#design">The design</a><a href="#why">Why this size</a>
+      <a href="#data">Data and compute</a><a href="#plan">Timeline</a><a href="#rejected">Rejected options</a><a href="#changed">What changed</a>
+    </nav>
+  </div>
+</section>
+
+<section class="block" id="goal">
+  <div class="wrap goal">
+    <div class="sechead">
+      <div class="eyebrow">High-level goal</div>
+      <h2>A fully self-owned AI that walks on stage on December 8.</h2>
+      <div class="prose" style="margin-top:6px">
+        <p>Helios is a decoder-only transformer trained entirely from scratch on a single NVIDIA DGX Spark, with no outside base model and no third-party AI. It uses a <strong>mixture-of-experts</strong> design: only about 1.7 billion of its roughly 8 billion parameters work on any one word, so it trains at the cost of a much smaller model while holding the knowledge of a larger one.</p>
+        <p>The deliverable is not a file of weights. It is a <strong>device</strong>: a Raspberry Pi you speak to, which sends your question to Helios and says the answer out loud. Answers are grounded in information looked up at the moment you ask, so the model does the one thing a model this size can do reliably: read real text and answer from it.</p>
+      </div>
+    </div>
+    <div class="card">
+      <span class="k">Success looks like</span>
+      <ul class="list" style="color:var(--muted);font-size:0.95rem">
+        <li>The model is <strong>fully trained</strong>, not a big model starved of data</li>
+        <li>Every part is mine: architecture, tokenizer, weights</li>
+        <li>It answers spoken questions on a device, in about 3 to 5 seconds</li>
+        <li>A working demo is guaranteed, with a fallback for every failure (see the risk plan in Research)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="design">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">The design</div>
+      <h2>Headline specifications</h2>
+      <p>A modern Llama-style transformer, with each feed-forward layer split into 12 experts. A small router picks the best 2 for every word.</p>
+    </div>
+    <div class="grid two">
+      <div class="tablewrap"><table>
+        <tr><th>Property</th><th>Proposed</th></tr>
+        <tr><td>Total parameters</td><td>~8 B (mixture-of-experts)</td></tr>
+        <tr><td>Active per word</td><td>~1.7 B (top 2 of 12 experts)</td></tr>
+        <tr><td>Layers / width</td><td>24 layers, 2,048 wide</td></tr>
+        <tr><td>Attention</td><td>16 query heads sharing 4 key/value heads (GQA)</td></tr>
+        <tr><td>Context</td><td>4,096 tokens</td></tr>
+        <tr><td>Parts</td><td>RoPE, RMSNorm, SwiGLU, weight tying</td></tr>
+        <tr><td>Hardware</td><td>NVIDIA DGX Spark, GB10, 122 GB memory</td></tr>
+        <tr><td>Expected quality</td><td>Like a well-trained dense 3 to 4 B model</td></tr>
+      </table></div>
+      <div class="card" style="gap:16px">
+        <span class="k">How mixture-of-experts works</span>
+        <p>Each layer holds 12 expert networks. For each word, a router turns on just 2 of them. All 12 are stored, but only 2 run, so the cost of training follows the 1.7 B active parameters, not the 8 B total.</p>
+        <div class="moe" aria-hidden="true"><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i></div>
+        <p style="font-size:0.85rem">One layer, one word: 2 of 12 experts lit.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="why">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">Why this size</div>
+      <h2>Sized down from 12 B so it could finish.</h2>
+    </div>
+    <div class="prose">
+      <p>The first idea was a 12-billion-parameter model. The math said one Spark could only partly train it by December. A fully trained smaller model beats an undertrained larger one, so I cut the parameter count and kept every speed trick.</p>
+      <ul>
+        <li><strong>Mixture-of-experts</strong>: about 8 B of capacity for the compute of 1.7 B.</li>
+        <li><strong>Ruthless data cleaning</strong>: clean, deduplicated text raises quality instead of trading it away.</li>
+        <li><strong>Seed model first</strong>: prove the whole pipeline on a ~150 M model before the long run. That small model also becomes the guaranteed fallback demo.</li>
+        <li><strong>Run it 24/7</strong>, cooled, with automatic resume, so a weeks-long run can't silently stall.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="data">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">Data and compute</div>
+      <h2>The numbers the plan rested on</h2>
+      <p>Training compute is about 6 × parameters × tokens. The usual rule for a fully trained model is about 20 tokens for every parameter, counted here by active parameters.</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>6 N D</b><span>FLOPs to train N active parameters on D tokens</span></div>
+      <div class="stat"><b>~20×</b><span>tokens per parameter for a fully trained model</span></div>
+      <div class="stat"><b>30–40 B</b><span>clean tokens planned, from FineWeb-Edu, Wikipedia and code</span></div>
+      <div class="stat"><b>1.5–2.5 mo</b><span>of nonstop training planned on the Spark</span></div>
+    </div>
+    <div class="callout">The data plan: stream an already cleaned open dataset once, turn it into tokens on the fly, and save the token IDs to disk. No web crawling, because the cleaning work is already open source.</div>
+  </div>
+</section>
+
+<section class="block" id="plan">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">Timeline</div>
+      <h2>Proposed path to December</h2>
+    </div>
+    <div class="tl">
+      <div><b>AUGUST</b><h4>Architecture and seed</h4><p>Write the model in configurable code; train the ~150 M seed model on the Spark.</p></div>
+      <div><b>SEPTEMBER</b><h4>Data and seed run</h4><p>Build the tokenizer and data pipeline; finish a full seed run as the fallback demo.</p></div>
+      <div><b>OCTOBER 1</b><h4>Launch the 8 B run</h4><p>Lock the settings and start training, with progress on a dashboard.</p></div>
+      <div><b>OCTOBER – NOVEMBER</b><h4>Training</h4><p>Most of the tokens; build the serving layer and the device in parallel.</p></div>
+      <div><b>EARLY DECEMBER</b><h4>Freeze and demo</h4><p>Stop at a good checkpoint, fine-tune it to follow instructions, polish, rehearse.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="rejected">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">Considered and rejected</div>
+      <h2>Other ways to do it, and why not</h2>
+    </div>
+    <div class="tablewrap"><table>
+      <tr><th>Option</th><th>Why not</th></tr>
+      <tr><td>Dense 8 B or 12 B from scratch</td><td>Undertrained on one Spark before the deadline</td></tr>
+      <tr><td>12 B mixture-of-experts on the Spark</td><td>Only partly trained by December, with no margin</td></tr>
+      <tr><td>Fine-tune an existing model</td><td>Not from scratch; breaks the whole point of the project</td></tr>
+      <tr><td>Distill from a bigger model</td><td>Needs an outside teacher model; breaks the self-owned rule</td></tr>
+      <tr><td>Rent cloud GPUs</td><td>Would finish a 12 B fast, but costs money. Kept as a backup option</td></tr>
+    </table></div>
+  </div>
+</section>
+
+<section class="block" id="changed">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">Proposal vs. reality</div>
+      <h2>What changed once it was real</h2>
+      <p>The goal never changed. The details did, mostly for the better.</p>
+    </div>
+    <div class="tablewrap"><table>
+      <tr><th>Item</th><th>Proposed (Aug 3)</th><th>What happened</th></tr>
+      <tr><td>Size</td><td>~8 B / ~1.7 B active</td><td>8.28 B / 1.68 B active</td></tr>
+      <tr><td>Start of the 8 B run</td><td>October 1</td><td><strong>August 18</strong>, six weeks early</td></tr>
+      <tr><td>Training data</td><td>30–40 B tokens</td><td>15.3 B tokens, one pass, finished Oct 23 after 66 days</td></tr>
+      <tr><td>Precision</td><td>FP8, bf16 as fallback</td><td>bf16 throughout</td></tr>
+      <tr><td>Speed</td><td>not set</td><td>Tuned from 1,712 to 2,874 tokens a second (1.68×)</td></tr>
+      <tr><td>Vocabulary</td><td>~50 k, to be decided</td><td>My own tokenizer, 50,304 tokens</td></tr>
+      <tr><td>Facts</td><td>From the model's memory</td><td>Looked up live (weather, news, Wikipedia) before it answers</td></tr>
+      <tr><td>Device</td><td>A stage interface; the voice device came in the design addendum</td><td>A Raspberry Pi 4 voice device with a 5" screen, a ReSpeaker mic board and a speaker, in a 3D-printed case</td></tr>
+      <tr><td>Instruction tuning</td><td>Early December</td><td>November 3, with my own fine-tuning script</td></tr>
+    </table></div>
+  </div>
+</section>
+
+</main>
+<script src="site.js"></script>
+</body>
+</html>

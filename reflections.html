@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reflections · Helios</title>
+<meta name="description" content="Sprint reflections and retrospectives from the Helios capstone: what worked, what didn't, and what changed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .hurdle { display: grid; gap: 8px; }
+  .hurdle .q { color: var(--red); font: 500 0.72rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+  .hurdle .a { color: var(--green); font: 500 0.72rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 6px; }
+  .bars { display: grid; gap: 14px; max-width: 640px; }
+  .hb { display: grid; grid-template-columns: 110px 1fr 60px; gap: 12px; align-items: center; font-size: 0.9rem; color: var(--muted); }
+  .hb i { height: 14px; border-radius: 4px; background: var(--line2); display: block; }
+  .hb i.g { background: var(--gold); }
+  .hb b { color: var(--fg); font-variant-numeric: tabular-nums; text-align: right; }
+  .lessons { counter-reset: l; display: grid; gap: 14px; }
+  .lessons div { display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: start; }
+  .lessons div::before { counter-increment: l; content: counter(l); width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--gold); color: var(--gold2); font: 600 0.95rem var(--head); }
+  .lessons p { color: #d6d2c9; padding-top: 6px; }
+  .shift { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+</style>
+</head>
+<body data-page="reflections">
+<main>
+
+<section class="pagehead">
+  <div class="glow"></div>
+  <div class="wrap">
+    <div class="eyebrow">Reflections</div>
+    <h1>What I planned, what happened, and what I changed.</h1>
+    <p class="lede">At the end of each sprint I look back honestly: what I committed to, what I actually finished, where the time went, and one change to how I work next time.</p>
+    <nav class="toc" aria-label="On this page">
+      <a href="#s2">Sprint 2 · Review #1</a><a href="#s4">Sprint 4</a><a href="#s5">Sprint 5 · Review #2</a><a href="#lessons">Lessons</a>
+    </nav>
+  </div>
+</section>
+
+<section class="block" id="s2">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">Sprint 2 · Sep 14 – 25 · Formal Review #1</div>
+      <h2>Building around a model that wasn't finished yet</h2>
+      <p>By the start of the capstone I had already designed the model, built its vocabulary, gathered its training text and started a two-month training run. Sprint 2 was about everything that could be built while it trained.</p>
+    </div>
+    <div class="grid">
+      <div class="card"><span class="st done">Done</span><h4>Wrote a risk plan</h4><p>Mapped what could go wrong and the backup plan for each.</p></div>
+      <div class="card"><span class="st done">Done</span><h4>Solved how it finds facts</h4><p>Designed how Helios looks up real, current information before answering.</p></div>
+      <div class="card"><span class="st done">Done</span><h4>Built the connection point</h4><p>The doorway the device talks to, plus a stand-in AI to test against.</p></div>
+      <div class="card"><span class="st done">Done</span><h4>Training passed halfway</h4><p>The run crossed 57%, on schedule for late October.</p></div>
+    </div>
+    <h3 style="margin-top:8px">What was hard, and how I got past it</h3>
+    <div class="grid">
+      <div class="card hurdle"><span class="q">Hurdle</span><h4>It would confidently make things up</h4><span class="a">How</span><p>A model this size can't reliably memorize facts. So instead of trusting its memory, I look up real information and hand it to the model before it answers.</p></div>
+      <div class="card hurdle"><span class="q">Hurdle</span><h4>I can't build a device around an unfinished AI</h4><span class="a">How</span><p>I built a stand-in that acts like it. The device gets built and tested now, and the real model swaps in later.</p></div>
+      <div class="card hurdle"><span class="q">Hurdle</span><h4>I almost over-built the hardware</h4><span class="a">How</span><p>A custom circuit board would have cost weeks and real risk. I caught it early and switched to off-the-shelf parts: same result, far less risk.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="s4">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">Sprint 4 · Oct 12 – 23</div>
+      <h2>Checking my own work saved two expensive mistakes</h2>
+    </div>
+    <div class="grid two">
+      <div class="card"><span class="k">What landed</span>
+        <ul class="list" style="color:var(--muted)">
+          <li>Pre-training finished Oct 23 after 66 days; weights exported, verified and backed up</li>
+          <li>A 42,052-conversation dataset in Helios's voice, made for free on my own Mac</li>
+          <li>The case redesigned around a researched sound horn</li>
+          <li>88 design tests that caught bolt posts not attached to the case, before printing</li>
+        </ul></div>
+      <div class="card"><span class="k">What didn't</span>
+        <ul class="list" style="color:var(--muted)">
+          <li>The fine-tuning script I committed to wasn't written yet</li>
+          <li>The case wasn't printed, because my own review sent it back for fixes</li>
+          <li>Both carried into Sprint 5</li>
+        </ul></div>
+    </div>
+    <div class="callout"><strong>Process change:</strong> I moved the whole project into one organized notebook, with a task list and a daily log, and push to GitHub as I go. Documenting the same day replaced rebuilding it from memory.</div>
+  </div>
+</section>
+
+<section class="block" id="s5">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">Sprint 5 · Oct 26 – Nov 6 · Formal Review #2</div>
+      <h2>Committed vs. completed: 2.5 of 6</h2>
+      <p>Helios learned to answer, which was the big goal. But I finished less of my plan than I meant to, and the reasons are worth being honest about.</p>
+    </div>
+    <div class="tablewrap"><table>
+      <tr><th>Oct 27 plan</th><th class="num">Hours</th><th>Status</th><th>What happened</th></tr>
+      <tr><td>Sign off the dataset</td><td class="num">1</td><td><span class="st done">Done</span></td><td>Nov 3, a week late</td></tr>
+      <tr><td>Fine-tuning script</td><td class="num">5</td><td><span class="st done">Done</span></td><td>Tested on the Mac and the Spark; it stops itself at its best</td></tr>
+      <tr><td>Fine-tune the 8 B</td><td class="num">3</td><td><span class="st part">Partly</span></td><td>Ran twice (3 h 17 min, then a patch); the 50-question test isn't run</td></tr>
+      <tr><td>Connect it to the device</td><td class="num">4</td><td><span class="st no">Not done</span></td><td>The model server is ready; the Pi isn't pointed at it yet</td></tr>
+      <tr><td>Print case v2</td><td class="num">4</td><td><span class="st no">Not done</span></td><td>Redesigned as v3 instead; nothing printed</td></tr>
+      <tr><td>Mentors and website</td><td class="num">2</td><td><span class="st no">Not done</span></td><td>No mentor chat held; the website wasn't updated</td></tr>
+    </table></div>
+    <p style="color:var(--muted)">Not planned, but done: patch 1, a second "brain" for open conversation, Helios running on my laptop, and the new ReSpeaker mic and speaker board.</p>
+
+    <div class="grid two" style="align-items:start">
+      <div class="card" style="gap:18px">
+        <span class="k">Estimated vs. actual</span>
+        <div class="bars">
+          <div class="hb"><span>Planned</span><i style="width:76%"></i><b>16 h</b></div>
+          <div class="hb"><span>Worked</span><i class="g" style="width:100%"></i><b>~21 h</b></div>
+          <div class="hb"><span>Nov 3 alone</span><i class="g" style="width:33%"></i><b>7 h</b></div>
+        </div>
+        <p>1.3× over plan. I worked 9 of 11 days as planned, but a third of all the hours landed on one day.</p>
+      </div>
+      <div class="card"><span class="k">Where the time went</span>
+        <ul class="list" style="color:var(--muted)">
+          <li><strong>The dataset waited 18 days on my own sign-off.</strong> From Oct 16 to Nov 3, it pushed the fine-tune from Oct 31 to Nov 3, and connecting the device ran out of time.</li>
+          <li><strong>The case was redesigned twice, not printed.</strong> v2 on Oct 27, v3 on Oct 29, then a pick between ten looks. Sprint 4 missed its print the same way.</li>
+          <li><strong>The fine-tune weekend was empty.</strong> No work on Nov 1–2, so it ran on a school night instead.</li>
+        </ul></div>
+    </div>
+
+    <div class="shift">
+      <div class="card"><span class="k">Last sprint's change</span><h4>1–2 hours a night, every night</h4><p>Kept on 9 of 11 days, though 7 of the hours landed on Nov 3.</p></div>
+      <div class="card" style="border-color:rgba(245,166,35,.45)"><span class="k" style="color:var(--gold)">Sprint 6 change</span><h4>Every GitHub push gets an Unrulr post</h4><p>I pushed to GitHub every day I worked (15 commits, 8 daily logs) but posted to Unrulr only on the last day. Tying the two together means the journey is written as it happens. The check: days with a push but no post. The goal is zero.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="lessons">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">What I'm carrying forward</div>
+      <h2>Lessons so far</h2>
+    </div>
+    <div class="lessons">
+      <div><p><strong>Plan for failure before it happens.</strong> A written fallback for every risk turns a bad day into a pre-made decision instead of panic.</p></div>
+      <div><p><strong>Don't wait on the slow part.</strong> Building the device against a stand-in model meant two months of training weren't two months of waiting.</p></div>
+      <div><p><strong>Check the work honestly.</strong> Testing the data and the design before using them caught a broken print and thousands of bad answers.</p></div>
+      <div><p><strong>Talk to the model.</strong> Its loss numbers looked fine. Chatting with it is what showed the bad habits.</p></div>
+      <div><p><strong>My own sign-off can be the bottleneck.</strong> The longest delay in Sprint 5 was me not approving finished work. Decide, then move.</p></div>
+    </div>
+  </div>
+</section>
+
+</main>
+<script src="site.js"></script>
+</body>
+</html>

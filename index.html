@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Asher Greer · Helios</title>
+<meta name="description" content="Asher Greer's capstone portfolio: Helios, an 8.28-billion-parameter language model trained from scratch, and the voice device it drives.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .hero { position: relative; padding-block: clamp(48px, 8vw, 96px) clamp(40px, 6vw, 72px); overflow: hidden; }
+  .hero .wrap { display: grid; gap: clamp(32px, 5vw, 64px); grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); align-items: center; }
+  .hero h1 span { color: var(--gold); }
+  .hero .lede { font-size: clamp(1.08rem, 1.7vw, 1.3rem); color: var(--muted); max-width: 46ch; }
+  .hero .copy { display: grid; gap: 22px; }
+  .sky {
+    position: absolute; inset: 0; z-index: -1;
+    background:
+      radial-gradient(ellipse 55% 60% at 78% 38%, rgba(255, 170, 60, 0.28), transparent 65%),
+      radial-gradient(ellipse 90% 70% at 70% 110%, rgba(120, 50, 20, 0.35), transparent 70%),
+      linear-gradient(180deg, #0b0e14 0%, #120f12 100%);
+  }
+  /* the device, drawn in CSS around its real idle screen */
+  .device { position: relative; width: min(100%, 440px); margin-inline: auto; aspect-ratio: 136 / 110; }
+  .device .case {
+    position: absolute; inset: 0; border-radius: 9% / 11%;
+    background: linear-gradient(160deg, #f1ede6 0%, #d9d3c8 60%, #bfb8ab 100%);
+    box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.3) inset, -18px 0 40px -20px rgba(255, 170, 60, 0.35);
+  }
+  .device .screen {
+    position: absolute; left: 11%; right: 11%; top: 11%; aspect-ratio: 800 / 480;
+    border-radius: 3%; overflow: hidden; background: #000; box-shadow: 0 0 0 3px #1a1a1a;
+  }
+  .device .screen img { width: 100%; height: 100%; object-fit: cover; }
+  .device .grille {
+    position: absolute; left: 28%; right: 28%; bottom: 7%; height: 8%;
+    background: repeating-linear-gradient(90deg, #6d675e 0 3px, transparent 3px 7px); border-radius: 2px; opacity: 0.8;
+  }
+  .device .shadow { position: absolute; left: 6%; right: 6%; bottom: -7%; height: 10%; border-radius: 50%; background: rgba(0, 0, 0, 0.55); filter: blur(14px); z-index: -1; }
+
+  .about { display: grid; gap: clamp(28px, 5vw, 56px); grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); align-items: start; }
+  .facts { display: grid; gap: 12px; }
+  .fact { display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); font-size: 0.95rem; }
+  .fact span:first-child { font: 500 0.72rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); padding-top: 3px; }
+
+  .tour {
+    position: relative; border-radius: 18px; overflow: hidden; border: 1px solid var(--line2);
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 300px;
+    background: linear-gradient(120deg, #17110b, #0e1118 70%);
+  }
+  .tour .t { padding: clamp(24px, 4vw, 44px); display: grid; gap: 14px; align-content: center; }
+  .tour .t p { color: var(--muted); }
+  .tour .pic { position: relative; min-height: 240px; }
+  .tour .pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 55% 45%; opacity: 0.9; }
+  .tour .pic::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, #120f0d 0%, transparent 40%); }
+
+  .how { counter-reset: s; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+  .how .card { position: relative; padding-top: 44px; }
+  .how .card::before {
+    counter-increment: s; content: counter(s, decimal-leading-zero);
+    position: absolute; top: 18px; left: 22px; font: 500 0.78rem var(--mono); color: var(--gold);
+  }
+  .screens { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+
+  @media (max-width: 860px) {
+    .hero .wrap, .about, .tour { grid-template-columns: 1fr; }
+    .hero .device { width: min(84%, 380px); }
+    .tour .pic { min-height: 200px; }
+    .tour .pic::before { background: linear-gradient(0deg, #120f0d 0%, transparent 45%); }
+  }
+</style>
+</head>
+<body data-page="home">
+<main>
+
+<section class="hero">
+  <div class="sky"></div>
+  <div class="wrap">
+    <div class="copy">
+      <div class="eyebrow">Dawson School · Technology Capstone 2026</div>
+      <h1>I built an AI from scratch, and the device you <span>talk to it</span> with.</h1>
+      <p class="lede">Helios is an 8.28-billion-parameter language model I designed and trained myself on one computer, plus a small voice device that listens, looks up live facts, and answers out loud.</p>
+      <div class="row">
+        <a class="btn" href="project/">Take the 3D tour →</a>
+        <a class="btn ghost" href="#about">About me</a>
+      </div>
+    </div>
+    <div class="device" aria-label="The Helios device showing its idle screen">
+      <div class="shadow"></div>
+      <div class="case"></div>
+      <div class="screen"><img src="img/screen_idle.png" alt="Helios idle screen: the time, the date and a sun"></div>
+      <div class="grille"></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" style="border-top:0;padding-top:0">
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><b>8.28 B</b><span>parameters, 1.68 B used for each word</span></div>
+      <div class="stat"><b>15.3 B</b><span>word pieces of text it learned from</span></div>
+      <div class="stat"><b>66 days</b><span>of training on one NVIDIA DGX Spark</span></div>
+      <div class="stat"><b>&lt; 1 s</b><span>to answer a question after fine-tuning</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="about">
+  <div class="wrap about">
+    <div class="sechead">
+      <div class="eyebrow">About me</div>
+      <h2>Asher Greer</h2>
+      <p>Student at Dawson School. I build hardware and software, and I like knowing how a thing works all the way down.</p>
+    </div>
+    <div style="display:grid;gap:26px">
+      <div class="prose">
+        <p>Most AI projects start from a model a big company already trained, and adjust it. I wanted to know what it takes to build one with nothing borrowed: my own design, my own vocabulary, my own training run, on hardware I can put on a desk.</p>
+        <p>Helios is my second model. The first, <strong>Icarus</strong>, was a 51-million-parameter model I built to learn the basics. Helios is about 160 times bigger. I spent the summer of 2026 designing it and started its training run on August 18, before the capstone even began, so the school semester could go to teaching it to talk and building the device around it.</p>
+        <p>Along the way I learned CAD in Fusion, 3D printing, basic acoustics, Linux on a Raspberry Pi, and how to plan a project that can fail in a dozen places and still make it to the stage.</p>
+      </div>
+      <div class="facts">
+        <div class="fact"><span>School</span><span>Dawson School, Technology Capstone</span></div>
+        <div class="fact"><span>Project</span><span>Helios: a language model and a voice device</span></div>
+        <div class="fact"><span>Tools</span><span>Python, PyTorch, Autodesk Fusion, Raspberry Pi, Git</span></div>
+        <div class="fact"><span>Code</span><span><a href="https://github.com/DaedalusBuilt">github.com/DaedalusBuilt</a></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">My project</div>
+      <h2>Helios: ask a question out loud, get a real answer back.</h2>
+      <p>Two halves. A brain I trained myself, running on a desk-sized supercomputer, and a small device on the table that does the listening and talking.</p>
+    </div>
+
+    <div class="how">
+      <div class="card"><h4>You ask</h4><p>"Hey Helios" wakes the device. Its microphone board hears the question and the Pi turns speech into text with Moonshine.</p></div>
+      <div class="card"><h4>It looks things up</h4><p>For weather, news or facts, it searches live sources first, so the answer comes from real text, not memory.</p></div>
+      <div class="card"><h4>Helios answers</h4><p>My model, on the DGX Spark, reads what was found and answers in one to three spoken sentences.</p></div>
+      <div class="card"><h4>The device speaks</h4><p>Piper turns the answer into a voice, and the screen shows it.</p></div>
+    </div>
+
+    <a class="tour card" href="project/" style="padding:0">
+      <div class="t">
+        <div class="eyebrow">Interactive</div>
+        <h3 style="font-size:1.6rem">The 3D tour</h3>
+        <p>Scroll through the real CAD model: the case comes apart, the question travels to the Spark, a word rises through the model's 24 layers, and the real training curve draws itself.</p>
+        <span class="go">Open the tour →</span>
+      </div>
+      <div class="pic"><img src="img/r/v5_iso_front.jpg" alt="Helios case rendered in Fusion"></div>
+    </a>
+
+    <div class="screens">
+      <figure><img class="zoom" src="img/screen_listening.png" alt="Device screen while listening"><figcaption>Listening</figcaption></figure>
+      <figure><img class="zoom" src="img/screen_thinking.png" alt="Device screen while thinking"><figcaption>Thinking</figcaption></figure>
+      <figure><img class="zoom" src="img/screen_answer.png" alt="Device screen showing an answer"><figcaption>Answering</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="sechead">
+      <div class="eyebrow">The portfolio</div>
+      <h2>How it got built</h2>
+    </div>
+    <div class="grid">
+      <a class="card" href="proposal.html"><span class="k">01</span><h3>Project proposal</h3><p>The original plan from August: what Helios would be, why this size, and what changed since.</p><span class="go">Read →</span></a>
+      <a class="card" href="gantt.html"><span class="k">02</span><h3>Gantt chart</h3><p>Seven two-week sprints from Aug 31 to Dec 11, and how far each task got.</p><span class="go">See the schedule →</span></a>
+      <a class="card" href="journeys.html"><span class="k">03</span><h3>Unrulr journeys</h3><p>My published sprint journeys, moment by moment, with the screenshots I posted.</p><span class="go">Read →</span></a>
+      <a class="card" href="reflections.html"><span class="k">04</span><h3>Reflections</h3><p>What worked, what didn't, where the time went, and what I changed each sprint.</p><span class="go">Read →</span></a>
+      <a class="card" href="research.html"><span class="k">05</span><h3>Research</h3><p>The model design, live search, benchmarks against other models, and the acoustics and tipping tests behind the case.</p><span class="go">Read →</span></a>
+      <a class="card" href="project/"><span class="k">06</span><h3>3D tour</h3><p>The whole project in one scrolling scene.</p><span class="go">Open →</span></a>
+    </div>
+  </div>
+</section>
+
+</main>
+<script src="site.js"></script>
+</body>
+</html>
